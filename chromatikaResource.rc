@@ -1,0 +1,5 @@
+LUT_CHROME RCDATA "hald\\chrome.png"
+LUT_EVERYDAY RCDATA "hald\\everyday.png"
+LUT_LANDSCAPE RCDATA "hald\\landscape.png"
+LUT_WARM RCDATA "hald\\warm.png"
+COLOR_CHECKER RCDATA "hald\\color_checker.png"

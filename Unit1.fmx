@@ -1,0 +1,83 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 845
+  ClientWidth = 617
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  DesignerMasterStyle = 0
+  object btnchooseHald: TButton
+    Position.X = 352.000000000000000000
+    Position.Y = 32.000000000000000000
+    TabOrder = 0
+    Text = 'btnchooseHald'
+  end
+  object btnChoose: TButton
+    Position.X = 352.000000000000000000
+    Position.Y = 80.000000000000000000
+    TabOrder = 1
+    Text = 'btnChoose'
+    OnClick = btnChooseClick
+  end
+  object btnApply: TButton
+    Position.X = 352.000000000000000000
+    Position.Y = 128.000000000000000000
+    TabOrder = 2
+    Text = 'btnApply'
+  end
+  object btnSave: TButton
+    Position.X = 352.000000000000000000
+    Position.Y = 176.000000000000000000
+    TabOrder = 3
+    Text = 'btnSave'
+    OnClick = btnSaveClick
+  end
+  object Image1: TImage
+    MultiResBitmap = <
+      item
+      end>
+    Position.X = 8.000000000000000000
+    Position.Y = 16.000000000000000000
+    Size.Width = 313.000000000000000000
+    Size.Height = 329.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object original: TRadioButton
+    Position.X = 8.000000000000000000
+    Position.Y = 376.000000000000000000
+    TabOrder = 5
+    Text = 'original'
+  end
+  object chrome: TRadioButton
+    Position.X = 8.000000000000000000
+    Position.Y = 416.000000000000000000
+    TabOrder = 6
+    Text = 'chrome'
+  end
+  object warm: TRadioButton
+    Position.X = 8.000000000000000000
+    Position.Y = 456.000000000000000000
+    TabOrder = 7
+    Text = 'warm'
+  end
+  object cool: TRadioButton
+    Position.X = 8.000000000000000000
+    Position.Y = 496.000000000000000000
+    TabOrder = 8
+    Text = 'cool'
+  end
+  object landscape: TRadioButton
+    Position.X = 8.000000000000000000
+    Position.Y = 536.000000000000000000
+    TabOrder = 9
+    Text = 'landscape'
+  end
+  object AniIndicator1: TAniIndicator
+    Position.X = 8.000000000000000000
+    Position.Y = 571.000000000000000000
+  end
+end
