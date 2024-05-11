@@ -292,6 +292,8 @@ end;
 
 
 procedure TForm1.RadioButtonChange(Sender: TObject);
+var
+  imgData: TBitmapData;
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
 
@@ -313,17 +315,22 @@ begin
   begin
     ProcessedBitmap := TBitmap.Create;
     ProcessedBitmap.Assign(smimg);
-    ProcessedBitmap.Canvas.Lock;
+    //ProcessedBitmap.Canvas.Lock;
+
+    ProcessedBitmap.Map(TMapAccess.ReadWrite, imgData);
+
     TTask.Run(procedure
     begin
       try
 
-        haldclut.apply(ProcessedBitmap, SelectedLUT);
+        //haldclut.apply(ProcessedBitmap, SelectedLUT);
+        haldclut.ApplyRaw(imgData, SelectedLUT);
         TThread.Queue(nil, procedure
         begin
           CacheProcessedBitmap(ProcessedBitmap);
           UpdateUI(ProcessedBitmap);
-          ProcessedBitmap.Canvas.Unlock;
+          //ProcessedBitmap.Canvas.Unlock;
+          ProcessedBitmap.Unmap(imgData);
         end);
       except
         on E: Exception do

@@ -6,6 +6,7 @@ unit haldclut;
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs;
 
    procedure apply(img, hald_clut: TBitmap);
+   procedure ApplyRaw(srcBitmapData: TBitmapData; clut: TBitmap);
 
    implementation
 
@@ -298,5 +299,41 @@ begin
   end;
 
 end; //apply
+
+procedure ApplyRaw(srcBitmapData: TBitmapData; clut: TBitmap);
+var
+  clutBitmapData: TBitmapData;
+  x, y, clutSize: Integer;
+  srcPixel, finalColor: TAlphaColor;
+  r, g, b, fracR, fracG, fracB: Double;
+  clutPoints: TClutColors;
+begin
+  clutSize := Round(Power(clut.Width * clut.Height, 1 / 3));
+  if clut.Map(TMapAccess.Read, clutBitmapData) then
+  try
+    for y := 0 to srcBitmapData.Height - 1 do
+    begin
+      for x := 0 to srcBitmapData.Width - 1 do
+      begin
+        srcPixel := srcBitmapData.GetPixel(x, y);
+
+        r := (TAlphaColorRec(srcPixel).R / 255.0) * (clutSize - 1);
+        g := (TAlphaColorRec(srcPixel).G / 255.0) * (clutSize - 1);
+        b := (TAlphaColorRec(srcPixel).B / 255.0) * (clutSize - 1);
+
+        fracR := Frac(r);
+        fracG := Frac(g);
+        fracB := Frac(b);
+
+        clutPoints := FetchClutColors(clutBitmapData, clutSize, clut.Width, clut.Height, r, g, b);
+        finalColor := TrilinearInterpolate(fracR, fracG, fracB, clutPoints);
+
+        srcBitmapData.SetPixel(x, y, finalColor);
+      end;
+    end;
+  finally
+    clut.Unmap(clutBitmapData);
+  end;
+end;
 
 end.
