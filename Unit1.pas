@@ -26,6 +26,10 @@ type
 
     function GetCurrentLUT: TBitmap;
     procedure ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
+    procedure DisableRadioButtons(Disable: Boolean);
+    function  GetProcessedBitmap: TBitmap;
+    procedure CacheProcessedBitmap(var Bitmap: TBitmap);
+    procedure UpdateUI(Bitmap: TBitmap);
     procedure scaleAndShow;
     procedure setimage(bmp: TBitmap);
     procedure RadioButtonChange(Sender: TObject);
@@ -200,67 +204,142 @@ begin
   else if landscape.IsChecked then Result := LUTLandscape;
 end;
 
+function TForm1.GetProcessedBitmap: TBitmap;
+begin
+  // Return the correct processed bitmap based on the selected LUT
+  if chrome.IsChecked then
+    Result := prChrome
+  else if warm.IsChecked then
+    Result := prWarm
+  else if cool.IsChecked then
+    Result := prCool
+  else if landscape.IsChecked then
+    Result := prLandscape
+  else
+    Result := nil;
+end;
+
+procedure TForm1.CacheProcessedBitmap(var Bitmap: TBitmap);
+begin
+  if chrome.IsChecked then
+    prChrome := Bitmap
+  else if warm.IsChecked then
+    prWarm := Bitmap
+  else if cool.IsChecked then
+    prCool := Bitmap
+  else if landscape.IsChecked then
+    prLandscape := Bitmap;
+end;
+
+procedure TForm1.UpdateUI(Bitmap: TBitmap);
+begin
+  Image1.Bitmap.Assign(Bitmap);
+  AniIndicator1.Visible := False;
+  AniIndicator1.Enabled := False;
+  DisableRadioButtons(False);
+  btnSave.Visible := True;
+end;
+
+{
+ procedure TForm1.UpdateUI(Bitmap: TBitmap);
+begin
+  TThread.Queue(nil, procedure
+  begin
+    if Assigned(Bitmap) then
+    begin
+      // Clone the bitmap for UI thread safety
+      var ClonedBitmap: TBitmap := TBitmap.Create;
+      try
+        ClonedBitmap.Assign(Bitmap);
+        Image1.Bitmap.Assign(ClonedBitmap);
+      finally
+        ClonedBitmap.Free;
+      end;
+    end;
+
+    AniIndicator1.Visible := False;
+    AniIndicator1.Enabled := False;
+    DisableRadioButtons(False);
+    btnSave.Visible := True;
+  end);
+end;
+ }
+ {
+ procedure TForm1.UpdateUI(Bitmap: TBitmap);
+begin
+  TThread.Queue(nil, procedure
+  begin
+    if Assigned(Bitmap) then
+    begin
+      Image1.Bitmap.Assign(Bitmap);
+      Image1.Bitmap.BitmapChanged;  // Force redraw
+    end;
+
+    AniIndicator1.Visible := False;
+    AniIndicator1.Enabled := False;
+    btnSave.Visible := True;
+  end);
+end;
+  }
+procedure TForm1.DisableRadioButtons(Disable: Boolean);
+begin
+  chrome.Enabled := not Disable;
+  warm.Enabled := not Disable;
+  cool.Enabled := not Disable;
+  landscape.Enabled := not Disable;
+  original.Enabled := not Disable;
+end;
+
+
 procedure TForm1.RadioButtonChange(Sender: TObject);
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
 
-  // Display the original image as default and toggle save button visibility
-  Image1.Bitmap.Assign(smimg);
-  btnSave.Visible := not original.IsChecked;
-
   if original.IsChecked then
-    Exit;  // No further action needed if the original is selected
+  begin
+    Image1.Bitmap.Assign(smimg);  // Display the original image immediately
+    btnSave.Visible := False;
+    Exit;  // No further processing needed
+  end;
+
+  AniIndicator1.Visible := True;
+  AniIndicator1.Enabled := True;
+  DisableRadioButtons(True);
 
   var SelectedLUT := GetCurrentLUT;
-  var ProcessedBitmap: TBitmap;
+  var ProcessedBitmap: TBitmap := GetProcessedBitmap;
+
+  if not Assigned(ProcessedBitmap) then
   begin
-    if chrome.IsChecked then
-      ProcessedBitmap := prChrome
-    else if warm.IsChecked then
-      ProcessedBitmap := prWarm
-    else if cool.IsChecked then
-      ProcessedBitmap := prCool
-    else if landscape.IsChecked then
-      ProcessedBitmap := prLandscape;
-
-    // Process the image if not already done
-    if not Assigned(ProcessedBitmap) then
+    ProcessedBitmap := TBitmap.Create;
+    ProcessedBitmap.Assign(smimg);
+    ProcessedBitmap.Canvas.Lock;
+    TTask.Run(procedure
     begin
-      ProcessedBitmap := TBitmap.Create;
-      ProcessedBitmap.Assign(smimg);
-
-      // Apply LUT and check for errors
       try
-        if ProcessedBitmap.IsEmpty then
-          raise Exception.Create('ProcessedBitmap is empty after assignment.');
 
-        haldclut.apply(ProcessedBitmap, SelectedLUT);  // Apply LUT
-
+        haldclut.apply(ProcessedBitmap, SelectedLUT);
+        TThread.Queue(nil, procedure
+        begin
+          CacheProcessedBitmap(ProcessedBitmap);
+          UpdateUI(ProcessedBitmap);
+          ProcessedBitmap.Canvas.Unlock;
+        end);
       except
         on E: Exception do
-        begin
-          ProcessedBitmap.Free;  // Free on failure
-          raise;  // Re-raise the exception to handle it appropriately
-        end;
+          TThread.Queue(nil, procedure
+          begin
+            ShowMessage('Error processing image: ' + E.Message);
+            ProcessedBitmap.Free;
+          end);
       end;
-
-      // Cache the processed image for future use
-      if chrome.IsChecked then
-        prChrome := ProcessedBitmap
-      else if warm.IsChecked then
-        prWarm := ProcessedBitmap
-      else if cool.IsChecked then
-        prCool := ProcessedBitmap
-      else if landscape.IsChecked then
-        prLandscape := ProcessedBitmap;
-    end;
-
-    // Display the processed or cached image
-    Image1.Bitmap.Assign(ProcessedBitmap);
-    btnSave.Visible := True;
+    end);
+  end
+  else
+  begin
+    UpdateUI(ProcessedBitmap);
   end;
 end;
-
 
 {$IFDEF ANDROID or IOS}
 procedure TForm1.btnSaveClick(Sender: TObject);
