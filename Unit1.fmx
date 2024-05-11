@@ -80,4 +80,8 @@ object Form1: TForm1
     Position.X = 8.000000000000000000
     Position.Y = 571.000000000000000000
   end
+  object NotificationCenter1: TNotificationCenter
+    Left = 256
+    Top = 432
+  end
 end

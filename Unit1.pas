@@ -7,7 +7,7 @@ uses
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.StdCtrls,
   FMX.Objects, FMX.Controls.Presentation,
   System.Threading, // for TProc
-   mobile;
+   mobile, System.Notification; //for TNotification;
 
 type
   TForm1 = class(TForm)
@@ -22,8 +22,10 @@ type
     cool: TRadioButton;
     landscape: TRadioButton;
     AniIndicator1: TAniIndicator;
+    NotificationCenter1: TNotificationCenter;
 
-    procedure ExecuteInBackground(TaskProc: TProc);
+    function GetCurrentLUT: TBitmap;
+    procedure ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
     procedure scaleAndShow;
     procedure setimage(bmp: TBitmap);
     procedure RadioButtonChange(Sender: TObject);
@@ -39,7 +41,7 @@ type
     LUTWarm: TBitmap;
     MobileService: TMobileService;
 
-    hald_clut, img, smimg, tempBitmap, prChrome, prWarm, prCool, prLandscape : TBitmap;
+    hald_clut, img, smimg, tempBitmap, prChrome, prWarm, prCool, prLandscape: TBitmap;
     ScreenWidth, ScreenHeight: Single;
     MaxPreviewWidth: Single;
     MaxPreviewHeight: Single;
@@ -65,11 +67,13 @@ implementation
 
      FMX.Surfaces,// for TBitmapSurface
    {$ENDIF}
+  //System.Notification (*for tnotification *),
    haldclut, helpers, log;
 
 
 {$R *.fmx}
-procedure TForm1.ExecuteInBackground(TaskProc: TProc);
+
+procedure TForm1.ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
 begin
   TTask.Run(procedure
     begin
@@ -79,9 +83,8 @@ begin
 
         TThread.Queue(nil, procedure
           begin
-            AniIndicator1.Enabled := False;
-            AniIndicator1.Visible := False;
-            btnSave.Enabled := True;  // Re-enable the save button
+            if Assigned(OnCompletion) then
+              OnCompletion();  // Execute completion on main thread
           end);
       except
         on E: Exception do
@@ -188,81 +191,91 @@ begin
  {$ENDIF}
 end;
 
+function TForm1.GetCurrentLUT: TBitmap;
+begin
+  Result := nil;
+  if chrome.IsChecked then Result := LUTChrome
+  else if warm.IsChecked then Result := LUTWarm
+  else if cool.IsChecked then Result := LUTCool
+  else if landscape.IsChecked then Result := LUTLandscape;
+end;
+
 procedure TForm1.RadioButtonChange(Sender: TObject);
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
 
-  if original.IsChecked then
-  begin
-    // Directly display the original image
-    Image1.Bitmap.Assign(smimg);
-    btnSave.Visible := False;  // Hide the "Save" button when showing the original image
-  end
-  else
-  begin
-    // Check which LUT to apply based on the radio button checked
-    if chrome.IsChecked then
-    begin
-      if not Assigned(prChrome) then
-      begin
-        prChrome := TBitmap.Create;
-        prChrome.Assign(smimg);
+  // Display the original image as default and toggle save button visibility
+  Image1.Bitmap.Assign(smimg);
+  btnSave.Visible := not original.IsChecked;
 
-        haldclut.apply(prChrome, LUTChrome);
-      end;
-      Image1.Bitmap.Assign(prChrome);
-    end
+  if original.IsChecked then
+    Exit;  // No further action needed if the original is selected
+
+  var SelectedLUT := GetCurrentLUT;
+  var ProcessedBitmap: TBitmap;
+  begin
+    if chrome.IsChecked then
+      ProcessedBitmap := prChrome
     else if warm.IsChecked then
-    begin
-      if not Assigned(prWarm) then
-      begin
-        prWarm := TBitmap.Create;
-        prWarm.Assign(smimg);
-        haldclut.apply(prWarm, LUTWarm);
-      end;
-      Image1.Bitmap.Assign(prWarm);
-    end
+      ProcessedBitmap := prWarm
     else if cool.IsChecked then
-    begin
-      if not Assigned(prCool) then
-      begin
-        prCool := TBitmap.Create;
-        prCool.Assign(smimg);
-        haldclut.apply(prCool, LUTCool);
-      end;
-      Image1.Bitmap.Assign(prCool);
-    end
+      ProcessedBitmap := prCool
     else if landscape.IsChecked then
+      ProcessedBitmap := prLandscape;
+
+    // Process the image if not already done
+    if not Assigned(ProcessedBitmap) then
     begin
-      if not Assigned(prLandscape) then
-      begin
-        prLandscape := TBitmap.Create;
-        prLandscape.Assign(smimg);
-        haldclut.apply(prLandscape, LUTLandscape);
+      ProcessedBitmap := TBitmap.Create;
+      ProcessedBitmap.Assign(smimg);
+
+      // Apply LUT and check for errors
+      try
+        if ProcessedBitmap.IsEmpty then
+          raise Exception.Create('ProcessedBitmap is empty after assignment.');
+
+        haldclut.apply(ProcessedBitmap, SelectedLUT);  // Apply LUT
+
+      except
+        on E: Exception do
+        begin
+          ProcessedBitmap.Free;  // Free on failure
+          raise;  // Re-raise the exception to handle it appropriately
+        end;
       end;
-      Image1.Bitmap.Assign(prLandscape);
+
+      // Cache the processed image for future use
+      if chrome.IsChecked then
+        prChrome := ProcessedBitmap
+      else if warm.IsChecked then
+        prWarm := ProcessedBitmap
+      else if cool.IsChecked then
+        prCool := ProcessedBitmap
+      else if landscape.IsChecked then
+        prLandscape := ProcessedBitmap;
     end;
 
-    btnSave.Visible := True;  // Show the "Save" button when a LUT is applied
+    // Display the processed or cached image
+    Image1.Bitmap.Assign(ProcessedBitmap);
+    btnSave.Visible := True;
   end;
 end;
+
 
 {$IFDEF ANDROID or IOS}
 procedure TForm1.btnSaveClick(Sender: TObject);
 var
   tmp: TBitmap;
+  Notification : TNotification;
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
-
   // Select the correct LUT based on the selected radio button
   if chrome.IsChecked then hald_clut := LUTChrome
   else if warm.IsChecked then hald_clut := LUTWarm
   else if cool.IsChecked then hald_clut := LUTCool
   else if landscape.IsChecked then hald_clut := LUTLandscape;
-
   tmp := TBitmap.Create;
   tmp.Assign(img);
-
   // Start animation and disable UI elements
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
@@ -274,29 +287,49 @@ begin
   cool.Enabled := False;
   landscape.Enabled := False;
   Image1.Enabled := False;
-
-  // Execute the image processing in a background thread
-  ExecuteInBackground(procedure
+    ExecuteInBackground(
+    procedure
     begin
-      haldclut.apply(tmp, hald_clut);  // Process the image
+      // Background processing
+      haldclut.apply(tmp, hald_clut);  // Assuming ProcessBitmap is a method to process your bitmap
+    end,
+    procedure
+    begin
+      // This is executed in the main thread
+      if MobileService.save(tmp) then begin
+            //ShowMessage('Image saved successfully.')
+          if NotificationCenter1.Supported then
+          begin
+            Notification := NotificationCenter1.CreateNotification;
+            Notification.Name := 'image processed success';
+            Notification.AlertBody := 'Image saved successfully';
+            Notification.FireDate := Now;
+          end;
+          { Send notification in Notification Center }
+          NotificationCenter1.ScheduleNotification(Notification);
+          Notification.Free;
 
-      // Save or further process the image as needed
-      TThread.Queue(nil, procedure
-        begin
-          if MobileService.save(tmp) then
-            ShowMessage('Image saved successfully.')
-          else
-            ShowMessage('Failed to save image.');
-          tmp.Free;
-            btnChoose.Enabled := True;
-            original.Enabled := True;
-            chrome.Enabled := True;
-            warm.Enabled := True;
-            cool.Enabled := True;
-            landscape.Enabled := True;
-            Image1.Enabled := True;
-        end);
-    end);
+
+      end
+      else
+       begin
+            ShowMessage('Failed to save image.')
+       end;
+      tmp.Free;
+
+      AniIndicator1.Enabled := False;
+      AniIndicator1.Visible := False;
+      btnSave.Enabled := True;
+      btnChoose.Enabled := True;
+      original.Enabled := True;
+      chrome.Enabled := True;
+      warm.Enabled := True;
+      cool.Enabled := True;
+      landscape.Enabled := True;
+      Image1.Enabled := True;
+      btnSave.Enabled := True;
+    end
+  );
 end;
 {$ENDIF}
 
@@ -316,13 +349,10 @@ begin
     hald_clut := LUTCool
   else if landscape.IsChecked then
     hald_clut := LUTLandscape;
-
   tmp := TBitmap.Create;
   tmp.Assign(img);
-
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
-
             // Perform saving in a synchronized block
             TThread.Synchronize(nil, procedure
               begin
@@ -343,7 +373,6 @@ begin
               end);
   AniIndicator1.Visible := False;
   AniIndicator1.Enabled := False;
-
 end;
 {$ENDIF}
 procedure TForm1.FormCreate(Sender: TObject);
@@ -427,6 +456,9 @@ begin
   {$IFDEF ANDROID or IOS}
   MobileService := TMobileService.Create(Self);
   {$ENDIF}
+
+  NotificationCenter1 := TNotificationCenter.Create(Self);
+  //NotificationCenter1.OnReceiveLocalNotification := HandleNotification;
 
   img := TBitmap.Create;
   ResourceStream := TResourceStream.Create(HInstance, 'COLOR_CHECKER', RT_RCDATA);
