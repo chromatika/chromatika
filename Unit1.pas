@@ -84,7 +84,6 @@ begin
       try
         if Assigned(TaskProc) then
           TaskProc();  // Execute the passed procedure on a background thread
-
         TThread.Queue(nil, procedure
           begin
             if Assigned(OnCompletion) then
@@ -230,7 +229,6 @@ begin
   else if landscape.IsChecked then
     prLandscape := Bitmap;
 end;
-
 procedure TForm1.UpdateUI(Bitmap: TBitmap);
 begin
   Image1.Bitmap.Assign(Bitmap);
@@ -239,7 +237,6 @@ begin
   DisableRadioButtons(False);
   btnSave.Visible := True;
 end;
-
 {
  procedure TForm1.UpdateUI(Bitmap: TBitmap);
 begin
@@ -256,7 +253,6 @@ begin
         ClonedBitmap.Free;
       end;
     end;
-
     AniIndicator1.Visible := False;
     AniIndicator1.Enabled := False;
     DisableRadioButtons(False);
@@ -274,7 +270,6 @@ begin
       Image1.Bitmap.Assign(Bitmap);
       Image1.Bitmap.BitmapChanged;  // Force redraw
     end;
-
     AniIndicator1.Visible := False;
     AniIndicator1.Enabled := False;
     btnSave.Visible := True;
@@ -296,35 +291,29 @@ var
   imgData: TBitmapData;
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
-
   if original.IsChecked then
   begin
     Image1.Bitmap.Assign(smimg);  // Display the original image immediately
     btnSave.Visible := False;
     Exit;  // No further processing needed
   end;
-
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
   DisableRadioButtons(True);
-
   var SelectedLUT := GetCurrentLUT;
   var ProcessedBitmap: TBitmap := GetProcessedBitmap;
-
   if not Assigned(ProcessedBitmap) then
   begin
     ProcessedBitmap := TBitmap.Create;
     ProcessedBitmap.Assign(smimg);
     //ProcessedBitmap.Canvas.Lock;
-
     ProcessedBitmap.Map(TMapAccess.ReadWrite, imgData);
-
     TTask.Run(procedure
     begin
       try
-
         //haldclut.apply(ProcessedBitmap, SelectedLUT);
-        haldclut.ApplyRaw(imgData, SelectedLUT);
+        //haldclut.ApplyRaw(imgData, SelectedLUT);
+        haldclut.ApplyRawParallel(imgData, SelectedLUT);
         TThread.Queue(nil, procedure
         begin
           CacheProcessedBitmap(ProcessedBitmap);
@@ -347,11 +336,11 @@ begin
     UpdateUI(ProcessedBitmap);
   end;
 end;
-
 {$IFDEF ANDROID or IOS}
 procedure TForm1.btnSaveClick(Sender: TObject);
 var
   tmp: TBitmap;
+  imgData: TBitmapData;
   Notification : TNotification;
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
@@ -377,7 +366,12 @@ begin
     procedure
     begin
       // Background processing
-      haldclut.apply(tmp, hald_clut);  // Assuming ProcessBitmap is a method to process your bitmap
+      //haldclut.apply(tmp, hald_clut);  // Assuming ProcessBitmap is a method to process your bitmap
+      tmp.Map(TMapAccess.ReadWrite, imgData);
+      haldclut.ApplyRawParallel(imgData, hald_clut);
+      CacheProcessedBitmap(tmp);
+      UpdateUI(tmp);
+      tmp.Unmap(imgData);
     end,
     procedure
     begin
@@ -394,7 +388,6 @@ begin
           { Send notification in Notification Center }
           NotificationCenter1.ScheduleNotification(Notification);
           Notification.Free;
-
 
       end
       else

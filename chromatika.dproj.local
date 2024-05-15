@@ -5,21 +5,21 @@
     <Transaction>2023/03/16 18:08:11.000.444,=C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
     <Transaction>2024/04/28 09:28:05.000.556,=C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
     <Transaction>2024/04/28 18:52:11.000.173,=C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
-    <Transaction>2024/04/28 18:53:05.000.968,C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.pas=C:\prj\chromatika\Unit1.pas</Transaction>
-    <Transaction>2024/04/28 18:53:05.000.968,C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.fmx=C:\prj\chromatika\Unit1.fmx</Transaction>
-    <Transaction>2024/04/28 18:53:12.000.922,C:\Users\n\Documents\Embarcadero\Studio\Projects\Project1.dproj=C:\prj\chromatika\Project1.dproj</Transaction>
+    <Transaction>2024/04/28 18:53:05.000.968,C:\prj\chromatika\Unit1.fmx=C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.fmx</Transaction>
+    <Transaction>2024/04/28 18:53:05.000.968,C:\prj\chromatika\Unit1.pas=C:\Users\n\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2024/04/28 18:53:12.000.922,C:\prj\chromatika\Project1.dproj=C:\Users\n\Documents\Embarcadero\Studio\Projects\Project1.dproj</Transaction>
     <Transaction>2024/04/28 18:58:06.000.978,=C:\prj\chromatika\haldclut.pas</Transaction>
-    <Transaction>2024/04/28 19:00:25.000.737,=C:\prj\chromatika\hald\chrome.png</Transaction>
     <Transaction>2024/04/28 19:00:25.000.823,=C:\prj\chromatika\hald\everyday.png</Transaction>
+    <Transaction>2024/04/28 19:00:25.000.737,=C:\prj\chromatika\hald\chrome.png</Transaction>
     <Transaction>2024/04/28 19:00:25.000.908,=C:\prj\chromatika\hald\landscape.png</Transaction>
     <Transaction>2024/04/28 19:00:26.000.039,=C:\prj\chromatika\hald\warm.png</Transaction>
-    <Transaction>2024/04/28 19:02:16.000.379,C:\prj\chromatika\Project1.dproj=C:\prj\chromatika\chromatika.dproj</Transaction>
+    <Transaction>2024/04/28 19:02:16.000.379,C:\prj\chromatika\chromatika.dproj=C:\prj\chromatika\Project1.dproj</Transaction>
     <Transaction>2024/04/28 19:46:01.000.159,=C:\prj\chromatika\Unit2.pas</Transaction>
-    <Transaction>2024/04/28 19:46:37.000.473,C:\prj\chromatika\Unit2.pas=C:\prj\chromatika\helpers.pas</Transaction>
+    <Transaction>2024/04/28 19:46:37.000.473,C:\prj\chromatika\helpers.pas=C:\prj\chromatika\Unit2.pas</Transaction>
     <Transaction>2024/04/28 19:51:29.000.913,=C:\prj\chromatika\Unit2.pas</Transaction>
-    <Transaction>2024/04/28 19:51:47.000.728,C:\prj\chromatika\Unit2.pas=C:\prj\chromatika\mobile.pas</Transaction>
+    <Transaction>2024/04/28 19:51:47.000.728,C:\prj\chromatika\mobile.pas=C:\prj\chromatika\Unit2.pas</Transaction>
     <Transaction>2024/05/03 23:28:35.000.646,=C:\prj\chromatika\Unit2.pas</Transaction>
-    <Transaction>2024/05/03 23:28:56.000.220,C:\prj\chromatika\Unit2.pas=C:\prj\chromatika\log.pas</Transaction>
+    <Transaction>2024/05/03 23:28:56.000.220,C:\prj\chromatika\log.pas=C:\prj\chromatika\Unit2.pas</Transaction>
     <Transaction>2024/05/07 14:22:55.000.060,=C:\prj\chromatika\hald\color_checker.png</Transaction>
   </Transactions>
 	<ActiveMobileDevice>

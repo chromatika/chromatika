@@ -7,10 +7,12 @@ unit haldclut;
 
    procedure apply(img, hald_clut: TBitmap);
    procedure ApplyRaw(srcBitmapData: TBitmapData; clut: TBitmap);
+   procedure ApplyRawParallel(srcBitmapData: TBitmapData; clut: TBitmap);
 
    implementation
 
-   uses System.Math, System.UIConsts;
+   uses System.Math, System.UIConsts,
+   System.Threading; //for TParallel
 
    type
 
@@ -331,6 +333,63 @@ begin
         srcBitmapData.SetPixel(x, y, finalColor);
       end;
     end;
+  finally
+    clut.Unmap(clutBitmapData);
+  end;
+end;
+
+
+  procedure ProcessPixel(x, y: Integer; var srcBitmapData: TBitmapData; var clutBitmapData: TBitmapData; clut: TBitmap; clutSize: Integer);
+  var
+    srcPixel, finalColor: TAlphaColor;
+    r, g, b, fracR, fracG, fracB: Double;
+    clutPoints: TClutColors;
+  begin
+    srcPixel := srcBitmapData.GetPixel(x, y);
+
+    // Normalize and scale RGB values to the range [0, clutSize - 1)
+    r := (TAlphaColorRec(srcPixel).R / 255.0) * (clutSize - 1);
+    g := (TAlphaColorRec(srcPixel).G / 255.0) * (clutSize - 1);
+    b := (TAlphaColorRec(srcPixel).B / 255.0) * (clutSize - 1);
+
+    // Calculate the fractional part of the r, g, b values
+    fracR := Frac(r);
+    fracG := Frac(g);
+    fracB := Frac(b);
+
+    // Get the surrounding colors from the CLUT
+    clutPoints := FetchClutColors(clutBitmapData, clutSize, clut.Width, clut.Height, r, g, b);
+
+    // Perform trilinear interpolation
+    finalColor := TrilinearInterpolate(fracR, fracG, fracB, clutPoints);
+
+    // Set the final color to the pixel
+    srcBitmapData.SetPixel(x, y, finalColor);
+
+  end;
+
+
+
+procedure ApplyRawParallel(srcBitmapData: TBitmapData; clut: TBitmap);
+var
+  clutBitmapData: TBitmapData;
+  clutSize: Integer;
+
+begin
+  clutSize := Round(Power(clut.Width * clut.Height, 1 / 3));
+
+  if clut.Map(TMapAccess.Read, clutBitmapData) then
+  try
+    TParallel.For(0, srcBitmapData.Height - 1,
+      procedure(y: Integer)
+      var
+        x: Integer;
+      begin
+        for x := 0 to srcBitmapData.Width - 1 do
+        begin
+          ProcessPixel(x, y, srcBitmapData, clutBitmapData, clut, clutSize);
+        end;
+      end);
   finally
     clut.Unmap(clutBitmapData);
   end;
