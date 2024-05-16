@@ -229,6 +229,7 @@ begin
   else if landscape.IsChecked then
     prLandscape := Bitmap;
 end;
+
 procedure TForm1.UpdateUI(Bitmap: TBitmap);
 begin
   Image1.Bitmap.Assign(Bitmap);
@@ -369,8 +370,6 @@ begin
       //haldclut.apply(tmp, hald_clut);  // Assuming ProcessBitmap is a method to process your bitmap
       tmp.Map(TMapAccess.ReadWrite, imgData);
       haldclut.ApplyRawParallel(imgData, hald_clut);
-      CacheProcessedBitmap(tmp);
-      UpdateUI(tmp);
       tmp.Unmap(imgData);
     end,
     procedure
@@ -394,8 +393,7 @@ begin
        begin
             ShowMessage('Failed to save image.')
        end;
-      tmp.Free;
-
+      FreeAndNil(tmp);
       AniIndicator1.Enabled := False;
       AniIndicator1.Visible := False;
       btnSave.Enabled := True;
