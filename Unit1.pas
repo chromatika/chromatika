@@ -6,6 +6,7 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.StdCtrls,
   FMX.Objects, FMX.Controls.Presentation,
+  FMX.Layouts,      // for TLayout
   System.Threading, // for TProc
    mobile, System.Notification; //for TNotification;
 
@@ -456,6 +457,7 @@ procedure TForm1.FormCreate(Sender: TObject);
 var
   ResourceStream: TResourceStream;
   StyleObj: TFmxObject;
+  layOriginal, layChrome, layWarm, layCool, layLandscape: TLayout;
 begin
   inherited;
   prChrome := nil;
@@ -495,20 +497,52 @@ begin
   Image1.Position.X := 0; //offsetTiny;
   Image1.Position.Y := 0; //offsetTiny;
 
-  original.Position.X := offsetSmall;
-  chrome.Position.X   := offsetSmall;
-  warm.Position.X     := offsetSmall;
-  cool.Position.X := offsetSmall;
-  landscape.Position.X := offsetSmall;
-  original.Position.Y := Image1.Height + offsetSmall;
-  chrome.Position.Y   := original.Position.Y + offsetBig;
-  warm.Position.Y     := chrome.Position.Y + offsetBig;
-  cool.Position.Y := warm.Position.Y + offsetBig;
-  landscape.Position.Y := cool.Position.Y + offsetBig;
+  layOriginal := TLayout.Create(Self); layOriginal.Parent := Self;
+  layOriginal.Position.X := offsetSmall; layOriginal.Position.Y := Image1.Height + offsetSmall;
+  layOriginal.Height := offsetBig;
+  original.Parent := layOriginal; original.Align := TAlignLayout.Left;
+  layOriginal.HitTest := True;
+
+  layChrome := TLayout.Create(Self); layChrome.Parent := Self;
+  layChrome.Position.X := offsetSmall; layChrome.Position.Y := layOriginal.Position.Y + offsetBig;
+  layChrome.Height := offsetBig;
+  chrome.Parent := layChrome; chrome.Align := TAlignLayout.Left;
+  layChrome.HitTest := True;
+
+  layWarm := TLayout.Create(Self); layWarm.Parent := Self;
+  layWarm.Position.X := offsetSmall; layWarm.Position.Y := layChrome.Position.Y + offsetBig;
+  layWarm.Height := offsetBig;
+  warm.Parent := layWarm; warm.Align := TAlignLayout.Left;
+  layWarm.HitTest := True;
+
+  layCool := TLayout.Create(Self); layCool.Parent := Self;
+  layCool.Position.X := offsetSmall; layCool.Position.Y := layWarm.Position.Y + offsetBig;
+  layCool.Height := offsetBig;
+  cool.Parent := layCool; cool.Align := TAlignLayout.Left;
+  layCool.HitTest := True;
+
+  layLandscape := TLayout.Create(Self); layLandscape.Parent := Self;
+  layLandscape.Position.X := offsetSmall; layLandscape.Position.Y := layCool.Position.Y + offsetBig;
+  layCool.Height := offsetBig;
+  landscape.Parent := layLandscape; landscape.Align := TAlignLayout.Left;
+  layLandscape.HitTest := True;
+
+
+//  original.Position.X := offsetSmall;
+//  chrome.Position.X   := offsetSmall;
+//  warm.Position.X     := offsetSmall;
+//  cool.Position.X := offsetSmall;
+//  landscape.Position.X := offsetSmall;
+//  original.Position.Y := Image1.Height + offsetSmall;
+//  chrome.Position.Y   := original.Position.Y + offsetBig;
+//  warm.Position.Y     := chrome.Position.Y + offsetBig;
+//  cool.Position.Y := warm.Position.Y + offsetBig;
+//  landscape.Position.Y := cool.Position.Y + offsetBig;
 
   btnChoose.Width := ScreenWidth / offsetQuart;
   btnChoose.Height := offsetBig; // Set a fixed height
-  btnChoose.Position.Y := original.Position.Y; //offsetSmall;
+//  btnChoose.Position.Y := original.Position.Y; //offsetSmall;
+  btnChoose.Position.Y := layOriginal.Position.Y; //offsetSmall;
   btnChoose.Position.X := ScreenWidth - btnChoose.Width - offsetSmall;//original.Position.X + original.Width + offsetBig;   //Image1.Width + offsetBig + offsetTiny;
 
   btnSave.Width := ScreenWidth / offsetQuart;

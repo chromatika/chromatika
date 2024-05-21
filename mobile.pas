@@ -31,10 +31,8 @@ type
     TakePhotoFromLibraryAction1 : FMX.MediaLibrary.Actions.TTakePhotoFromLibraryAction;
     namePath: string;
     clbk: TImageProcessedCallback;
-
     constructor Create(AOwner: TComponent);
     destructor Destroy; override;
-
     procedure PermissionResult(Sender: TObject; const APermissions: TClassicStringDynArray; const AGrantResults: TClassicPermissionStatusDynArray);
     procedure DisplayRationale(Sender: TObject; const APermissions: TClassicStringDynArray; const APostRationaleProc: TProc);
     procedure TakePhotoFromLibraryAction1DidFinishTaking(Image: TBitmap);
@@ -124,7 +122,6 @@ begin
   TakePhotoFromLibraryAction1.MaxHeight := Min(SuggestedMaxDimension, 5000);
   TakePhotoFromLibraryAction1.MaxWidth := Min(SuggestedMaxDimension, 5000);
 {$ENDIF}
-
 {$IFDEF CPUARM64}
   TakePhotoFromLibraryAction1.MaxHeight := 5000;
   TakePhotoFromLibraryAction1.MaxWidth := 5000;
@@ -243,9 +240,7 @@ begin
     end;
 end;
 {$ENDIF}
-
 {$IFDEF ANDROID or IOS}
-
 
 //procedure TMobileService.choose(Callback: TImageProcessedCallback);
 //var
@@ -270,7 +265,6 @@ end;
 //  TakePhotoFromLibraryAction1.Execute;
 //  {$ENDIF}
 //end;
-
 procedure TMobileService.choose(Callback: TImageProcessedCallback);
 var
   Permissions: TArray<string>;
@@ -294,7 +288,6 @@ begin
   TakePhotoFromLibraryAction1.Execute;
   {$ENDIF}
 end;
-
 {$ENDIF}
 
 {$IFDEF ANDROID}
@@ -317,7 +310,6 @@ begin
   TakePhotoFromLibraryAction1.OnDidFinishTaking := TakePhotoFromLibraryAction1DidFinishTaking;
   WaitingForPermissionToOpenGallery := False;
 end;
-
 destructor TMobileService.Destroy;
 begin
   TakePhotoFromLibraryAction1.Free;
