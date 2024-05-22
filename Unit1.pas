@@ -8,6 +8,7 @@ uses
   FMX.Objects, FMX.Controls.Presentation,
   FMX.Layouts,      // for TLayout
   System.Threading, // for TProc
+  FMX.Gestures,     // for TGestureManager
    mobile, System.Notification; //for TNotification;
 
 type
@@ -24,6 +25,7 @@ type
     landscape: TRadioButton;
     AniIndicator1: TAniIndicator;
     NotificationCenter1: TNotificationCenter;
+    GestureManager1: TGestureManager;
 
     function GetCurrentLUT: TBitmap;
     procedure ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
@@ -38,18 +40,22 @@ type
     procedure btnChooseClick(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnSaveClick(Sender: TObject);
+    procedure Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
   private
     { Private declarations }
     LUTChrome: TBitmap;
     LUTCool: TBitmap;
     LUTLandscape: TBitmap;
     LUTWarm: TBitmap;
+
     MobileService: TMobileService;
 
     hald_clut, img, smimg, tempBitmap, prChrome, prWarm, prCool, prLandscape: TBitmap;
     ScreenWidth, ScreenHeight: Single;
     MaxPreviewWidth: Single;
     MaxPreviewHeight: Single;
+    //gesture
+    FLastDistance: Integer;
   public
     { Public declarations }
   end;
@@ -65,7 +71,6 @@ const
 var
   Form1: TForm1;
 
-
 implementation
   uses
    {$IFDEF MSWINDOWS}
@@ -73,10 +78,65 @@ implementation
      FMX.Surfaces,// for TBitmapSurface
    {$ENDIF}
   //System.Notification (*for tnotification *),
+   System.Math, //for min
    haldclut, helpers, log;
 
 
 {$R *.fmx}
+{
+procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
+var
+  LImageCenter: TPointF;
+  Scale: Single;
+begin
+  if EventInfo.GestureID = igiZoom then
+  begin
+    if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
+      FLastDistance := EventInfo.Distance;
+
+    if (not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags)) and
+       (not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags)) then
+    begin
+      LImageCenter := Image1.Position.Point + PointF(Image1.Width / 2, Image1.Height / 2);
+      Scale := EventInfo.Distance / FLastDistance;
+      Image1.Width := Image1.Width * Scale;
+      Image1.Height := Image1.Height * Scale;
+      Image1.Position.X := LImageCenter.X - Image1.Width / 2;
+      Image1.Position.Y := LImageCenter.Y - Image1.Height / 2;
+      FLastDistance := EventInfo.Distance;
+    end;
+
+    Handled := True;
+  end;
+end;
+ }
+
+procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
+var
+  LImageCenter: TPointF;
+  Scale: Single;
+begin
+  if EventInfo.GestureID = igiZoom then
+  begin
+    if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
+      FLastDistance := EventInfo.Distance;
+
+    if (not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags)) and
+       (not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags)) then
+    begin
+      LImageCenter := Image1.Position.Point + PointF(Image1.Width / 2, Image1.Height / 2);
+      Scale := EventInfo.Distance / FLastDistance;
+      Image1.Width := Image1.Width * Scale;
+      Image1.Height := Image1.Height * Scale;
+      Image1.Position.X := LImageCenter.X - Image1.Width / 2;
+      Image1.Position.Y := LImageCenter.Y - Image1.Height / 2;
+      FLastDistance := EventInfo.Distance;
+    end;
+
+    Handled := True;
+  end;
+end;
+
 
 procedure TForm1.ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
 begin
@@ -149,6 +209,8 @@ begin
     // Create a new bitmap and assign the image from the action
     img := TBitmap.Create;
     img.Assign(bmp);
+      MaxPreviewWidth := Min(ScreenWidth*2, img.Width);
+      MaxPreviewHeight := Min(ScreenHeight*2, img.Height);
     scaleAndShow;
   end;
 
@@ -453,11 +515,12 @@ begin
   AniIndicator1.Enabled := False;
 end;
 {$ENDIF}
+
 procedure TForm1.FormCreate(Sender: TObject);
 var
   ResourceStream: TResourceStream;
   StyleObj: TFmxObject;
-  layOriginal, layChrome, layWarm, layCool, layLandscape: TLayout;
+  layImage, layOriginal, layChrome, layWarm, layCool, layLandscape: TLayout;
 begin
   inherited;
   prChrome := nil;
@@ -479,7 +542,6 @@ begin
   MaxPreviewWidth := ScreenWidth;//200;
   MaxPreviewHeight := ScreenHeight;//200;
 
-
 //  ScreenWidth := Screen.Size.Width;
 //  ScreenHeight := Screen.Size.Height;
   AniIndicator1.Visible := false;
@@ -492,10 +554,37 @@ begin
   end;
   AniIndicator1.Width := ScreenWidth / 2;
 
-  Image1.Width := ScreenWidth - offsetHalf;
+{  Image1.Width := ScreenWidth - offsetHalf;
   Image1.Height := ScreenHeight / 2; //ScreenHeight / offsetHalf;
   Image1.Position.X := 0; //offsetTiny;
   Image1.Position.Y := 0; //offsetTiny;
+ }
+  layImage := TLayout.Create(Self);
+  layImage.Parent := Self;
+  layImage.Position.X := 0; layImage.Position.Y := 0;
+  layImage.Width := ScreenWidth - offsetHalf;
+  layImage.Height := ScreenHeight / 2;
+  layImage.SetBounds(0, 0, ScreenWidth - offsetHalf, ScreenHeight / 2);  // Adjust size to match where you want Image1
+  layImage.ClipChildren := True;
+
+
+  // Set up Image1
+  Image1.Parent := layImage;
+  Image1.Align := TAlignLayout.None;
+  Image1.SetBounds(0, 0, layImage.Width, layImage.Height);
+
+  // Set up gestures
+  Image1.Touch.GestureManager := GestureManager1;
+  Image1.Touch.InteractiveGestures := [TInteractiveGesture.Zoom, TInteractiveGesture.Pan];
+  Image1.OnGesture := Image1Gesture;
+
+
+  //gestures
+  FLastDistance := 0;
+
+  Image1.Touch.GestureManager := GestureManager1;
+  Image1.Touch.InteractiveGestures := [TInteractiveGesture.Zoom, TInteractiveGesture.Pan];
+  Image1.OnGesture := Image1Gesture;
 
   layOriginal := TLayout.Create(Self); layOriginal.Parent := Self;
   layOriginal.Position.X := offsetSmall; layOriginal.Position.Y := Image1.Height + offsetSmall;
@@ -612,7 +701,6 @@ begin
   finally
     ResourceStream.Free;
   end;
-
 end;
 
 procedure TForm1.FormDestroy(Sender: TObject);
