@@ -59,6 +59,8 @@ type
     //gesture
     FLastDistance: Integer;
     FLastTouch: TPointF;
+    FInitialWidth: Single;
+    FInitialHeight: Single;
   public
     { Public declarations }
   end;
@@ -111,7 +113,8 @@ begin
 
 end;
  }
-
+{ this works well}
+{
 procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
 var
   LImageCenter: TPointF;
@@ -166,6 +169,71 @@ begin
       end;
   end;
 end;
+}
+
+procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
+var
+  LImageCenter: TPointF;
+  Scale, NewWidth, NewHeight: Single;
+  NewPosition: TPointF;
+begin
+  case EventInfo.GestureID of
+    igiZoom:
+      begin
+        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
+          FLastDistance := EventInfo.Distance;
+
+        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
+           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
+        begin
+          LImageCenter := PointF(Image1.Width / 2, Image1.Height / 2);
+          Scale := EventInfo.Distance / FLastDistance;
+          NewWidth := Image1.Width * Scale;
+          NewHeight := Image1.Height * Scale;
+
+          // Prevent zooming out smaller than the initial size
+          if (NewWidth >= FInitialWidth) and (NewHeight >= FInitialHeight) then
+          begin
+            Image1.Width := NewWidth;
+            Image1.Height := NewHeight;
+            Image1.Position.X := (Image1.Position.X + LImageCenter.X) - (Image1.Width / 2);
+            Image1.Position.Y := (Image1.Position.Y + LImageCenter.Y) - (Image1.Height / 2);
+          end;
+
+          FLastDistance := EventInfo.Distance;
+        end;
+
+        Handled := True;
+      end;
+    igiPan:
+      begin
+        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
+        begin
+          FLastTouch := EventInfo.Location;
+        end;
+
+        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
+           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
+        begin
+          NewPosition.X := Image1.Position.X + (EventInfo.Location.X - FLastTouch.X);
+          NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
+
+          // Boundary checks
+          if NewPosition.X > 0 then NewPosition.X := 0;
+          if NewPosition.Y > 0 then NewPosition.Y := 0;
+          if NewPosition.X + Image1.Width < layImage.Width then NewPosition.X := layImage.Width - Image1.Width;
+          if NewPosition.Y + Image1.Height < layImage.Height then NewPosition.Y := layImage.Height - Image1.Height;
+
+          Image1.Position.X := NewPosition.X;
+          Image1.Position.Y := NewPosition.Y;
+          FLastTouch := EventInfo.Location;
+        end;
+
+        Handled := True;
+      end;
+  end;
+end;
+
 
 procedure TForm1.ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
 begin
@@ -188,146 +256,7 @@ begin
       end;
     end);
 end;
-{
-procedure TForm1.scaleAndShow;
-var
-  ScaleFactor: Single;
-begin
-    smimg := TBitmap.Create;
-         //showmessage('max width ' + IntToStr(MobileService.TakePhotoFromLibraryAction1.MaxWidth));
-         //showmessage('ao bmp is ' + IntToStr(bmp.Width) + 'x' + IntToStr(bmp.Height));
-     //    showmessage('ao name path: ' + MobileService.namePath);
-    //PreviewBitmap := TBitmap.Create;
-    try
-      // Set a fixed preview size or scale according to your needs
-      ScaleFactor := helpers.calculateScaleFactor(img, MaxPreviewWidth, MaxPreviewHeight);
-      //PreviewBitmap.SetSize(Round(img.Width * ScaleFactor), Round(img.Height * ScaleFactor));
-      smimg.SetSize(Round(img.Width * ScaleFactor), Round(img.Height * ScaleFactor));
 
-      // Resize and assign to preview
-      //PreviewBitmap.Canvas.BeginScene;
-      smimg.Canvas.BeginScene;
-      try
-        //PreviewBitmap.Canvas.DrawBitmap(img, RectF(0, 0, img.Width, img.Height),
-        //RectF(0, 0, PreviewBitmap.Width, PreviewBitmap.Height), 1);
-        smimg.Canvas.DrawBitmap(img, RectF(0, 0, img.Width, img.Height),
-        RectF(0, 0, smimg.Width, smimg.Height), 1);
-      finally
-        //PreviewBitmap.Canvas.EndScene;
-        smimg.Canvas.EndScene;
-      end;
-   finally
-      // Display this resized image on the form's TImage control
-      //Image1.Bitmap.Assign(PreviewBitmap);
-      Image1.Bitmap.Assign(smimg);
-       //  showmessage('img is ' + IntToStr(img.Width) + 'x' + IntToStr(img.Height));
-       //  showmessage('smimg is ' + IntToStr(smimg.Width) + 'x' + IntToStr(smimg.Height));
-      original.IsChecked := true;
-   end;
-end;
- }
-{
-procedure TForm1.scaleAndShow;
-var
-  ScaleFactor, InitialScale: Single;
-begin
-  if Assigned(smimg) then FreeAndNil(smimg);
-  smimg := TBitmap.Create;
-  try
-    // Calculate the scale factor based on the original image dimensions and desired preview dimensions
-    ScaleFactor := helpers.calculateScaleFactor(img, MaxPreviewWidth, MaxPreviewHeight);
-    InitialScale := Min(ScreenWidth / img.Width, ScreenHeight / img.Height); // Scale to fit the screen initially
-    smimg.SetSize(Round(img.Width * ScaleFactor), Round(img.Height * ScaleFactor));
-    smimg.Canvas.BeginScene;
-    try
-      smimg.Canvas.DrawBitmap(img, RectF(0, 0, img.Width, img.Height), RectF(0, 0, smimg.Width, smimg.Height), 1);
-    finally
-      smimg.Canvas.EndScene;
-    end;
-    // Reset Image1 size and position to center the new image
-    Image1.Bitmap.Assign(smimg);
-    Image1.Width := img.Width * InitialScale;
-    Image1.Height := img.Height * InitialScale; layImage.Height := Image1.Height;
-    Image1.Position.X := 0;//(ScreenWidth / 2) - (Image1.Width / 2);
-    Image1.Position.Y := 0;//(ScreenHeight / 2) - (Image1.Height / 2);
-    original.IsChecked := true;
-  except
-    on E: Exception do
-      ShowMessage('Error during image scaling: ' + E.Message);
-  end;
-end;
- }
-{
-procedure TForm1.scaleAndShow;
-var
-  ScaleFactor, WidthScale, HeightScale: Single;
-begin
-  if Assigned(smimg) then FreeAndNil(smimg);
-  smimg := TBitmap.Create;
-  try
-    // Calculate the scale factor based on the smallest ratio in order to fit the image within layImage
-    WidthScale := layImage.Width / img.Width;
-    HeightScale := layImage.Height / img.Height;
-    //ScaleFactor := Min(WidthScale, HeightScale);  // Choose the smaller scale to ensure the image fits completely
-    ScaleFactor := helpers.calculateScaleFactor(img, MaxPreviewWidth, MaxPreviewHeight);
-    smimg.SetSize(Round(img.Width * ScaleFactor), Round(img.Height * ScaleFactor));
-    smimg.Canvas.BeginScene;
-    try
-      smimg.Canvas.DrawBitmap(img, RectF(0, 0, img.Width, img.Height),
-                              RectF(0, 0, smimg.Width, smimg.Height), 1);
-    finally
-      smimg.Canvas.EndScene;
-    end;
-    // Assign the scaled image to Image1 and adjust its size and position
-    Image1.Bitmap.Assign(smimg);
-    Image1.Width := smimg.Width;
-    Image1.Height := smimg.Height;
-    // Center the Image1 inside layImage
-    Image1.Position.X := (layImage.Width / 2) - (Image1.Width / 2);
-    Image1.Position.Y := (layImage.Height / 2) - (Image1.Height / 2);
-    original.IsChecked := true;
-  except
-    on E: Exception do
-      ShowMessage('Error during image scaling: ' + E.Message);
-  end;
-end;
- }
- {
-procedure TForm1.scaleAndShow;
-var
-  ScaleFactor, ScaleWidth, ScaleHeight: Single;
-begin
-  if Assigned(smimg) then FreeAndNil(smimg);
-  smimg := TBitmap.Create;
-  try
-    // Calculate individual scale factors for width and height
-    ScaleWidth := layImage.Width / img.Width;
-    ScaleHeight := layImage.Height / img.Height;
-    // Use the smaller scale factor to ensure the entire image fits within the bounds
-    ScaleFactor := Min(ScaleWidth, ScaleHeight);
-    // Set the size of the scaled image
-    smimg.SetSize(Round(img.Width * ScaleFactor), Round(img.Height * ScaleFactor));
-    // Render the scaled image
-    smimg.Canvas.BeginScene;
-    try
-      smimg.Canvas.DrawBitmap(img, RectF(0, 0, img.Width, img.Height), RectF(0, 0, smimg.Width, smimg.Height), 1);
-    finally
-      smimg.Canvas.EndScene;
-    end;
-    // Assign the scaled image to Image1 and adjust its size and position
-    Image1.Bitmap.Assign(smimg);
-    Image1.Width := smimg.Width;
-    Image1.Height := smimg.Height;
-    // Center Image1 within layImage
-    Image1.Position.X := (layImage.Width - Image1.Width) / 2;
-    Image1.Position.Y := (layImage.Height - Image1.Height) / 2;
-    original.IsChecked := true;
-  except
-    on E: Exception do
-      ShowMessage('Error during image scaling: ' + E.Message);
-  end;
-end;
-}
 procedure TForm1.scaleAndShow;
 var
   ScaleFactor, ScaleWidth, ScaleHeight, HighResFactor: Single;
@@ -418,6 +347,8 @@ begin
     FLastDistance := 0;
     // Apply scaling and display the image
     scaleAndShow;
+    FInitialWidth := Image1.Width;
+    FInitialHeight := Image1.Height;
   end;
 end;
 
@@ -783,7 +714,8 @@ begin
   Image1.Touch.InteractiveGestures := [TInteractiveGesture.Zoom, TInteractiveGesture.Pan];
   Image1.OnGesture := Image1Gesture;
   FLastTouch := PointF(0, 0); // Initialize the last touch point
-
+  FInitialWidth := Image1.Width;
+  FInitialHeight := Image1.Height;
 
   layOriginal := TLayout.Create(Self); layOriginal.Parent := Self;
 
