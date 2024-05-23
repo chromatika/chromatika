@@ -112,44 +112,18 @@ begin
 end;
  }
 
+procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
+var
+  LImageCenter: TPointF;
+  Scale: Single;
+  NewPosition: TPointF;
+begin
+  case EventInfo.GestureID of
+    igiZoom:
+      begin
+        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
+          FLastDistance := EventInfo.Distance;
 
-{
-procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
-var
-  LImageCenter: TPointF;
-  Scale: Single;
-begin
-  if EventInfo.GestureID = igiZoom then
-  begin
-    if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-      FLastDistance := EventInfo.Distance;
-    if (not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags)) and
-       (not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags)) then
-    begin
-      LImageCenter := Image1.Position.Point + PointF(Image1.Width / 2, Image1.Height / 2);
-      Scale := EventInfo.Distance / FLastDistance;
-      Image1.Width := Image1.Width * Scale;
-      Image1.Height := Image1.Height * Scale;
-      Image1.Position.X := LImageCenter.X - Image1.Width / 2;
-      Image1.Position.Y := LImageCenter.Y - Image1.Height / 2;
-      FLastDistance := EventInfo.Distance;
-    end;
-    Handled := True;
-  end;
-end;
- }
-{
-procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
-var
-  LImageCenter: TPointF;
-  Scale: Single;
-  NewPosition: TPointF;
-begin
-  case EventInfo.GestureID of
-    igiZoom:
-      begin
-        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-          FLastDistance := EventInfo.Distance;
         if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
            not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
         begin
@@ -161,6 +135,7 @@ begin
           Image1.Position.Y := (Image1.Position.Y + LImageCenter.Y) - (Image1.Height / 2);
           FLastDistance := EventInfo.Distance;
         end;
+
         Handled := True;
       end;
     igiPan:
@@ -169,121 +144,28 @@ begin
         begin
           FLastTouch := EventInfo.Location;
         end;
+
         if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
            not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
         begin
           NewPosition.X := Image1.Position.X + (EventInfo.Location.X - FLastTouch.X);
           NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
-          Image1.Position.X := NewPosition.X;
-          Image1.Position.Y := NewPosition.Y;
-          FLastTouch := EventInfo.Location;
-        end;
-        Handled := True;
-      end;
-  end;
-end;
-}
-{
-procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
-var
-  LImageCenter: TPointF;
-  Scale: Single;
-  NewPosition: TPointF;
-begin
-  case EventInfo.GestureID of
-    igiZoom:
-      begin
-        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-          FLastDistance := EventInfo.Distance;
-        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
-           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
-        begin
-          LImageCenter := PointF(Image1.Width / 2, Image1.Height / 2);
-          Scale := EventInfo.Distance / FLastDistance;
-          Image1.Width := Image1.Width * Scale;
-          Image1.Height := Image1.Height * Scale;
-          Image1.Position.X := (Image1.Position.X + LImageCenter.X) - (Image1.Width / 2);
-          Image1.Position.Y := (Image1.Position.Y + LImageCenter.Y) - (Image1.Height / 2);
-          FLastDistance := EventInfo.Distance;
-        end;
-        Handled := True;
-      end;
-    igiPan:
-      begin
-        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-        begin
-          FLastTouch := EventInfo.Location;
-        end;
-        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
-           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
-        begin
-          NewPosition.X := Image1.Position.X + (EventInfo.Location.X - FLastTouch.X);
-          NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
-          // Apply boundary checks
-          if NewPosition.X > 0 then NewPosition.X := 0;
-          if NewPosition.Y > 0 then NewPosition.Y := 0;
-          if NewPosition.X < layImage.Width - Image1.Width then NewPosition.X := layImage.Width - Image1.Width;
-          if NewPosition.Y < layImage.Height - Image1.Height then NewPosition.Y := layImage.Height - Image1.Height;
-          Image1.Position.X := NewPosition.X;
-          Image1.Position.Y := NewPosition.Y;
-          FLastTouch := EventInfo.Location;
-        end;
-        Handled := True;
-      end;
-  end;
-end;
-}
-procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
-var
-  LImageCenter: TPointF;
-  Scale: Single;
-  NewPosition: TPointF;
-begin
-  case EventInfo.GestureID of
-    igiZoom:
-      begin
-        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-          FLastDistance := EventInfo.Distance;
-        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
-           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
-        begin
-          LImageCenter := PointF(Image1.Width / 2, Image1.Height / 2);
-          Scale := EventInfo.Distance / FLastDistance;
-          Image1.Width := Image1.Width * Scale;
-          Image1.Height := Image1.Height * Scale;
-          // Recalculate the center position based on new dimensions
-          Image1.Position.X := (layImage.Width / 2) - (Image1.Width / 2);
-          Image1.Position.Y := (layImage.Height / 2) - (Image1.Height / 2);
-          FLastDistance := EventInfo.Distance;
-        end;
-        Handled := True;
-      end;
-    igiPan:
-      begin
-        if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-        begin
-          FLastTouch := EventInfo.Location;
-        end;
-        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
-           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
-        begin
-          NewPosition.X := Image1.Position.X + (EventInfo.Location.X - FLastTouch.X);
-          NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
-          // Apply boundary checks
+
+          // Boundary checks
           if NewPosition.X > 0 then NewPosition.X := 0;
           if NewPosition.Y > 0 then NewPosition.Y := 0;
           if NewPosition.X + Image1.Width < layImage.Width then NewPosition.X := layImage.Width - Image1.Width;
           if NewPosition.Y + Image1.Height < layImage.Height then NewPosition.Y := layImage.Height - Image1.Height;
+
           Image1.Position.X := NewPosition.X;
           Image1.Position.Y := NewPosition.Y;
           FLastTouch := EventInfo.Location;
         end;
+
         Handled := True;
       end;
   end;
 end;
-
-
 
 procedure TForm1.ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
 begin
