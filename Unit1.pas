@@ -540,16 +540,18 @@ procedure TForm1.btnSaveClick(Sender: TObject);
 var
   tmp: TBitmap;
   imgData: TBitmapData;
-  Notification : TNotification;
 begin
   if not Assigned(img) then Exit;  // Ensure there is an image loaded
+
   // Select the correct LUT based on the selected radio button
   if chrome.IsChecked then hald_clut := LUTChrome
   else if warm.IsChecked then hald_clut := LUTWarm
   else if cool.IsChecked then hald_clut := LUTCool
   else if landscape.IsChecked then hald_clut := LUTLandscape;
+
   tmp := TBitmap.Create;
   tmp.Assign(img);
+
   // Start animation and disable UI elements
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
@@ -561,11 +563,11 @@ begin
   cool.Enabled := False;
   landscape.Enabled := False;
   Image1.Enabled := False;
-    ExecuteInBackground(
+
+  ExecuteInBackground(
     procedure
     begin
       // Background processing
-      //haldclut.apply(tmp, hald_clut);  // Assuming ProcessBitmap is a method to process your bitmap
       tmp.Map(TMapAccess.ReadWrite, imgData);
       haldclut.ApplyRawParallel(imgData, hald_clut);
       tmp.Unmap(imgData);
@@ -573,36 +575,42 @@ begin
     procedure
     begin
       // This is executed in the main thread
-      if MobileService.save(tmp) then begin
-            //ShowMessage('Image saved successfully.')
-          if NotificationCenter1.Supported then
+      MobileService.save(tmp,
+        procedure(const ASaved: Boolean; const AErrorMessage: string)
+        var
+          Notification: TNotification;
+        begin
+          if ASaved then
           begin
-            Notification := NotificationCenter1.CreateNotification;
-            Notification.Name := 'image processed success';
-            Notification.AlertBody := 'Image saved successfully';
-            Notification.FireDate := Now;
+            if NotificationCenter1.Supported then
+            begin
+              Notification := NotificationCenter1.CreateNotification;
+              Notification.Name := 'image processed success';
+              Notification.AlertBody := 'Image saved successfully';
+              Notification.FireDate := Now;
+              NotificationCenter1.ScheduleNotification(Notification);
+              Notification.Free;
+            end;
+          end
+          else
+          begin
+            ShowMessage('Failed to save image: ' + AErrorMessage);
           end;
-          { Send notification in Notification Center }
-          NotificationCenter1.ScheduleNotification(Notification);
-          Notification.Free;
 
-      end
-      else
-       begin
-            ShowMessage('Failed to save image.')
-       end;
-      FreeAndNil(tmp);
-      AniIndicator1.Enabled := False;
-      AniIndicator1.Visible := False;
-      btnSave.Enabled := True;
-      btnChoose.Enabled := True;
-      original.Enabled := True;
-      chrome.Enabled := True;
-      warm.Enabled := True;
-      cool.Enabled := True;
-      landscape.Enabled := True;
-      Image1.Enabled := True;
-      btnSave.Enabled := True;
+          // Re-enable UI elements
+          FreeAndNil(tmp);
+          AniIndicator1.Enabled := False;
+          AniIndicator1.Visible := False;
+          btnSave.Enabled := True;
+          btnChoose.Enabled := True;
+          original.Enabled := True;
+          chrome.Enabled := True;
+          warm.Enabled := True;
+          cool.Enabled := True;
+          landscape.Enabled := True;
+          Image1.Enabled := True;
+          btnSave.Enabled := True;
+        end);
     end
   );
 end;
