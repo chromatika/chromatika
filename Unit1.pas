@@ -1,4 +1,4 @@
-unit Unit1;
+﻿unit Unit1;
 
 interface
 
@@ -35,6 +35,7 @@ type
     AniIndicator1: TAniIndicator;
     NotificationCenter1: TNotificationCenter;
     GestureManager1: TGestureManager;
+    btnRotate: TButton;
     procedure LoadSharedImage(SharedUri: Jnet_Uri);
     function GetCurrentLUT: TBitmap;
     procedure ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
@@ -51,6 +52,9 @@ type
     procedure btnSaveClick(Sender: TObject);
     //procedure rearrange;
     procedure Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
+    procedure btnRotateClick(Sender: TObject);
+    procedure ReGenerateDisplay;
+    procedure DisplayPreview(const ASource: TBitmap);
   private
     { Private declarations }
     LUTChrome: TBitmap;
@@ -70,6 +74,8 @@ type
     FLastTouch: TPointF;
     FInitialWidth: Single;
     FInitialHeight: Single;
+    FRotationAngle: Integer; // can be 0, 90, 180, 270
+    FJobToken: Integer;
   public
     { Public declarations }
   end;
@@ -95,8 +101,227 @@ implementation
    System.Math, //for min
    haldclut, helpers, log;
 
+type
+  // EXIF orientation values per spec:
+  // 1 = normal, 3 = 180 deg, 6 = 90 deg CW, 8 = 270 deg CW, etc.
+  // (2,4,5,7 also exist for mirrored flips, but often not used by phones).
+  TExifOrientation = 1..8;
 
 {$R *.fmx}
+
+
+function RotateBitmapFMX(const ASrc: TBitmap; Angle: Single): TBitmap;
+begin
+  // Create a copy so as not to modify the original
+  Result := TBitmap.Create;
+  try
+    Result.Assign(ASrc);
+    // Rotates the image in place, automatically resizing as needed
+    // This is part of FMX.Graphics.TBitmap
+    Result.Rotate(Angle);
+  except
+    FreeAndNil(Result);
+    raise;
+  end;
+end;
+
+
+
+function LowWord(const AValue: Cardinal): Word; inline;
+begin
+  Result := Word(AValue and $FFFF);
+end;
+
+
+// A minimal routine to parse the first IFD in the Exif segment
+function InternalFindOrientationTag(const ExifData: TBytes): Word;
+var
+  IsLittleEndian: Boolean;
+  OffsetBase: Integer;  // start of TIFF header
+  IFDOffset: Cardinal;
+  Count: Word;
+  i: Integer;
+  TagID, DataFormat: Word;
+  NumComponents: Cardinal;
+  ValueOffset: Cardinal;
+
+  function GetWordB(pos: Integer): Word;
+  begin
+    // read 2 bytes from ExifData[pos..pos+1]
+    if IsLittleEndian then
+      Result := Word(ExifData[pos]) or (Word(ExifData[pos+1]) shl 8)
+    else
+      Result := Word(ExifData[pos+1]) or (Word(ExifData[pos]) shl 8);
+  end;
+
+  function GetCardinalB(pos: Integer): Cardinal;
+  begin
+    if IsLittleEndian then
+    begin
+      Result := (Cardinal(ExifData[pos])      ) or
+                (Cardinal(ExifData[pos+1]) shl 8 ) or
+                (Cardinal(ExifData[pos+2]) shl 16) or
+                (Cardinal(ExifData[pos+3]) shl 24);
+    end
+    else
+    begin
+      Result := (Cardinal(ExifData[pos+3])      ) or
+                (Cardinal(ExifData[pos+2]) shl 8 ) or
+                (Cardinal(ExifData[pos+1]) shl 16) or
+                (Cardinal(ExifData[pos])   shl 24);
+    end;
+  end;
+
+begin
+  Result := 1; // default
+  if Length(ExifData) < 12 then
+    Exit;
+  // The Exif header: "Exif00" + TIFF header at offset 6
+  // Byte order at ExifData[6..7], then 0x002A at [8..9], then IFD offset at [10..13]
+  // Check byte order
+  IsLittleEndian := ((ExifData[6] = Ord('I')) and (ExifData[7] = Ord('I')));
+  // The offset to the start of the TIFF data is 6 bytes after "Exif00"
+  OffsetBase := 6;
+  // Check 0x002A
+  if GetWordB(OffsetBase + 2) <> $002A then
+    Exit;
+  // The offset to IFD0
+  IFDOffset := GetCardinalB(OffsetBase + 4);
+  if (OffsetBase + Integer(IFDOffset) + 2) >= Length(ExifData) then
+    Exit;
+
+  // Number of directory entries in IFD0
+  Count := GetWordB(OffsetBase + IFDOffset);
+  if (OffsetBase + IFDOffset + 2 + (Count * 12)) > Cardinal(Length(ExifData)) then
+    Exit;
+
+  // Loop over the IFD entries
+  for i := 0 to Count - 1 do
+  begin
+    // Each entry is 12 bytes: TagID(2), DataFormat(2), NumComponents(4), ValueOffset(4)
+    TagID := GetWordB(OffsetBase + IFDOffset + 2 + (12*i));
+    DataFormat := GetWordB(OffsetBase + IFDOffset + 2 + (12*i) + 2);
+    NumComponents := GetCardinalB(OffsetBase + IFDOffset + 2 + (12*i) + 4);
+    ValueOffset := GetCardinalB(OffsetBase + IFDOffset + 2 + (12*i) + 8);
+
+    // Orientation tag = 0x0112
+    if TagID = $0112 then
+    begin
+      // If DataFormat=3 => it's SHORT (2 bytes). We only expect 1 component.
+      // The orientation value might be in the ValueOffset field if it fits 2 bytes.
+      if (DataFormat = 3) and (NumComponents = 1) then
+      begin
+        // If 2 bytes can fit in that offset, we read directly
+        // In EXIF, if the data is <=4 bytes, the "ValueOffset" can store the data itself
+        if (ValueOffset <= $FFFF) then
+          Result := LowWord(ValueOffset)  // orientation
+        else
+        begin
+          // Otherwise need to read from that offset in the file.
+          // For brevity, we skip that.
+          // Usually orientation fits in 2 bytes so we can read directly from ValueOffset.
+        end;
+        Exit;
+      end;
+    end;
+  end;
+end;
+
+
+function ReadExifOrientationFromJPEG(const AStream: TStream): TExifOrientation;
+var
+  Marker: Word;
+  Size: Word;
+  Segment: TBytes;
+  i: Integer;
+  Tag: Word;
+  Format: Word;
+  Components: Cardinal;
+  Orientation: Word;
+  StartPos: Int64;
+begin
+  Result := 1; // default: no rotation needed
+
+  // Must start at beginning
+  AStream.Position := 0;
+
+  // Check JPEG SOI marker FF D8
+  AStream.ReadBuffer(Marker, 2);
+  Marker := Swap(Marker);
+  if Marker <> $FFD8 then
+    Exit; // not a JPEG or we can't parse
+
+  // Repeatedly read next marker
+  while AStream.Position < AStream.Size do
+  begin
+    // Markers are 0xFF??. We read 2 bytes:
+    if AStream.Read(Marker, 2) <> 2 then
+      Exit;
+    Marker := Swap(Marker);
+
+    if (Marker and $FF00) <> $FF00 then
+      Exit; // not a well-formed marker
+
+    if (Marker = $FFE1) then
+    begin
+      // APP1 segment => might contain Exif
+      // Read segment length
+      if AStream.Read(Size, 2) <> 2 then
+        Exit;
+      Size := Swap(Size);
+      if Size < 2 then
+        Exit;
+      // Read entire segment
+      SetLength(Segment, Size - 2);
+      if AStream.Read(Segment[0], Size - 2) <> (Size - 2) then
+        Exit;
+
+      // Check for "Exif" + zero + "MM" or "II"
+      // Typically: ASCII "Exif" 00 00 then TIFF header
+      if (Length(Segment) < 12) or
+         not ((Segment[0] = Ord('E')) and
+              (Segment[1] = Ord('x')) and
+              (Segment[2] = Ord('i')) and
+              (Segment[3] = Ord('f')) and
+              (Segment[4] = 0) and
+              (Segment[5] = 0)) then
+        continue; // not actually EXIF
+
+      // The next 2 bytes are either "II" or "MM" for byte order
+      // For simplicity, handle only "MM" (Motorola, big-endian) or "II" (Intel, little-endian).
+      // We'll do a partial parse for orientation.
+      // More robust code might handle offsets properly.
+      // This minimal approach finds the Orientation tag in the first IFD.
+      // You can study full EXIF docs for more correctness.
+
+      // We'll call a small function to parse the IFD and find orientation:
+      Orientation := 1;
+      Orientation := InternalFindOrientationTag(Segment);
+      // If found
+      if Orientation in [1..8] then
+        Exit(Orientation); // done
+    end
+    else if (Marker = $FFD9) then
+    begin
+      // EOI: end of image
+      Exit;
+    end
+    else
+    begin
+      // skip segment
+      if AStream.Read(Size, 2) <> 2 then
+        Exit;
+      Size := Swap(Size);
+      if (Size < 2) or (AStream.Position + (Size - 2) > AStream.Size) then
+        Exit;
+      AStream.Position := AStream.Position + (Size - 2);
+    end;
+  end;
+end;
+
+
+
+
 
 // this would arrange the image height so that image would be maximally scaled
 // but this is not usable because then the radio buttons are not visible
@@ -427,6 +652,94 @@ begin
     Result := nil;
 end;
 
+procedure TForm1.DisplayPreview(const ASource: TBitmap);
+var
+  RotatedCopy, Preview: TBitmap;
+  ScaleWidth, ScaleHeight, ScaleFactor: Single;
+begin
+  if not Assigned(ASource) then Exit;
+
+  // 1) Rotate a copy if needed
+  RotatedCopy := TBitmap.Create;
+  try
+    RotatedCopy.Assign(ASource);
+    if (FRotationAngle mod 360) <> 0 then
+      RotatedCopy.Rotate(FRotationAngle mod 360);
+
+    // 2) Scale to fit layImage
+    Preview := TBitmap.Create;
+    try
+      ScaleWidth := layImage.Width / RotatedCopy.Width;
+      ScaleHeight := layImage.Height / RotatedCopy.Height;
+      ScaleFactor := Min(ScaleWidth, ScaleHeight);
+
+      Preview.SetSize(
+        Round(RotatedCopy.Width  * ScaleFactor),
+        Round(RotatedCopy.Height * ScaleFactor)
+      );
+
+      Preview.Canvas.BeginScene;
+      try
+        Preview.Canvas.DrawBitmap(
+          RotatedCopy,
+          RotatedCopy.BoundsF,
+          Preview.BoundsF,
+          1
+        );
+      finally
+        Preview.Canvas.EndScene;
+      end;
+
+      // 3) Show in Image1
+      Image1.Bitmap.Assign(Preview);
+      Image1.Width  := Preview.Width;
+      Image1.Height := Preview.Height;
+      Image1.Position.X := (layImage.Width  - Image1.Width)  / 2;
+      Image1.Position.Y := (layImage.Height - Image1.Height) / 2;
+
+    finally
+      Preview.Free;
+    end;
+
+  finally
+    RotatedCopy.Free;
+  end;
+end;
+
+
+procedure TForm1.btnRotateClick(Sender: TObject);
+var
+  Rotated: TBitmap;
+begin
+ {
+  // Ensure there's an image loaded
+  if not Assigned(img) then
+  begin
+    ShowMessage('No image loaded to rotate.');
+    Exit;
+  end;
+
+  // Rotate the in-memory TBitmap by +90
+  Rotated := RotateBitmapFMX(img, 90);
+  try
+    // Then display the newly rotated image
+    setimage(Rotated);
+  finally
+    Rotated.Free;
+  end;
+  }
+   if not Assigned(img) then
+  begin
+    ShowMessage('No image loaded to rotate.');
+    Exit;
+  end;
+  //Increase by 90
+  FRotationAngle := (FRotationAngle + 90) mod 360;
+  // Re-generate the display
+  ReGenerateDisplay;
+
+end;
+
 procedure TForm1.CacheProcessedBitmap(var Bitmap: TBitmap);
 begin
   if chrome.IsChecked then
@@ -498,69 +811,152 @@ end;
 
 procedure TForm1.RadioButtonChange(Sender: TObject);
 var
+  SelectedLUT, ProcessedBitmap: TBitmap;
+  LocalToken: Integer;
   imgData: TBitmapData;
 begin
-  if not Assigned(img) then Exit;  // ensure there is an image loaded
-  if original.IsChecked then
-  begin
-    Image1.Bitmap.Assign(smimg);  // display the original image immediately
-    btnSave.Visible := False;
-    Exit;  // no further processing needed
-  end;
+  if not Assigned(img) then Exit; // no base image
+
+  // Bump the concurrency token for any existing tasks
+  Inc(FJobToken);
+  LocalToken := FJobToken;
+
+  // Show busy indicator only if we actually do a LUT task
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
   DisableRadioButtons(True);
-  var SelectedLUT := GetCurrentLUT;
-  var ProcessedBitmap: TBitmap := GetProcessedBitmap;
-  if not Assigned(ProcessedBitmap) then
+
+  SelectedLUT := GetCurrentLUT; // e.g. LUTChrome, etc.
+  ProcessedBitmap := GetProcessedBitmap;
+
+  if original.IsChecked or (SelectedLUT = nil) then
   begin
-    ProcessedBitmap := TBitmap.Create;
-    ProcessedBitmap.Assign(smimg);
-    //ProcessedBitmap.Canvas.Lock;
-    ProcessedBitmap.Map(TMapAccess.ReadWrite, imgData);
-    TTask.Run(procedure
-    begin
-      try
-        //haldclut.apply(ProcessedBitmap, SelectedLUT);
-        //haldclut.ApplyRaw(imgData, SelectedLUT);
-        haldclut.ApplyRawParallel(imgData, SelectedLUT);
-        TThread.Queue(nil, procedure
-        begin
-          CacheProcessedBitmap(ProcessedBitmap);
-          UpdateUI(ProcessedBitmap);
-          //ProcessedBitmap.Canvas.Unlock;
-          ProcessedBitmap.Unmap(imgData);
-        end);
-      except
-        on E: Exception do
-          TThread.Queue(nil, procedure
-          begin
-            ShowMessage('Error processing image: ' + E.Message);
-            ProcessedBitmap.Free;
-          end);
-      end;
-    end);
+    // =========================
+    // “ORIGINAL” OR NO-LUT CASE
+    // =========================
+    btnSave.Visible := False;
+
+    // Because we do NOT want to run any LUT TTask, just
+    // ensure we do not hang on the busy indicator:
+    AniIndicator1.Visible := False;
+    AniIndicator1.Enabled := False;
+    DisableRadioButtons(False);
+
+    // Also, if there's a TTask running from a previous LUT,
+    // it will see that its 'LocalToken' != 'FJobToken' when it finishes,
+    // so it discards results.
+
+    // Just do rotated display of the “original”:
+    ReGenerateDisplay;
+    Exit;
   end
   else
   begin
-    UpdateUI(ProcessedBitmap);
+    // ===============
+    // LUT SELECTED
+    // ===============
+    btnSave.Visible := True;
+
+    // If we don't already have a processed preview for the chosen LUT
+    if not Assigned(ProcessedBitmap) then
+    begin
+      // Need to do background LUT
+      ProcessedBitmap := TBitmap.Create;
+      ProcessedBitmap.Assign(smimg); // smimg is your “original scaled”?
+
+      // Map it
+      if ProcessedBitmap.Map(TMapAccess.ReadWrite, imgData) then
+      begin
+        TTask.Run(procedure
+        begin
+          try
+            haldclut.ApplyRawParallel(imgData, SelectedLUT);
+
+            TThread.Queue(nil, procedure
+            begin
+              // Check concurrency token
+              if LocalToken <> FJobToken then
+              begin
+                // user changed selection => discard
+                ProcessedBitmap.Unmap(imgData);
+                ProcessedBitmap.Free;
+                Exit;
+              end;
+
+              // Valid result
+              ProcessedBitmap.Unmap(imgData);
+              CacheProcessedBitmap(ProcessedBitmap);
+              UpdateUI(ProcessedBitmap);
+
+              // show rotate preview
+              ReGenerateDisplay;
+            end);
+
+          except
+            on E: Exception do
+              TThread.Queue(nil, procedure
+              begin
+                ShowMessage('Error processing image: ' + E.Message);
+                ProcessedBitmap.Free;
+              end);
+          end;
+        end);
+      end
+      else
+      begin
+        // Map failed
+        ProcessedBitmap.Free;
+        ShowMessage('Failed to map LUT image data.');
+        // Possibly revert to original or do something else
+      end;
+    end
+    else
+    begin
+      // We already have a processed LUT
+      UpdateUI(ProcessedBitmap);
+      ReGenerateDisplay;
+    end;
   end;
 end;
+
+function MakeRotatedCopy(const ASource: TBitmap; AAngle: Single): TBitmap;
+begin
+  if SameValue(AAngle, 0, 0.01) then
+  begin
+    Result := TBitmap.Create;
+    Result.Assign(ASource);
+  end
+  else
+    Result := RotateBitmapFMX(ASource, AAngle);
+end;
+
 {$IFDEF ANDROID or IOS}
+
+
 procedure TForm1.btnSaveClick(Sender: TObject);
 var
-  tmp: TBitmap;
+  tmp, tmp2: TBitmap;
   imgData: TBitmapData;
 begin
-  if not Assigned(img) then Exit;  // ensure there is an image loaded
-  // select the correct LUT based on the selected radio button
-  if chrome.IsChecked then hald_clut := LUTChrome
-  else if warm.IsChecked then hald_clut := LUTWarm
-  else if cool.IsChecked then hald_clut := LUTCool
-  else if landscape.IsChecked then hald_clut := LUTLandscape;
-  tmp := TBitmap.Create;
-  tmp.Assign(img);
-  // start animation and disable UI elements
+  if not Assigned(img) then
+  begin
+    ShowMessage('No image to save');
+    Exit;
+  end;
+
+  // 1) Figure out which LUT is selected (could be nil if "original" or no LUT).
+  if chrome.IsChecked then
+    hald_clut := LUTChrome
+  else if warm.IsChecked then
+    hald_clut := LUTWarm
+  else if cool.IsChecked then
+    hald_clut := LUTCool
+  else if landscape.IsChecked then
+    hald_clut := LUTLandscape
+  else
+    hald_clut := nil;  // "original" / no LUT
+
+  // 2) Show busy indicator + disable UI
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
   btnSave.Enabled := False;
@@ -571,68 +967,19 @@ begin
   cool.Enabled := False;
   landscape.Enabled := False;
   Image1.Enabled := False;
+  tmp := TBitmap.Create;
+  tmp.Assign(img);
+  //tmp := MakeRotatedCopy(img, FRotationAngle mod 360);
   {$IFDEF ANDROID}
   MobileService.RequestWritePermission(
     procedure(PermissionGranted: Boolean)
     begin
-      if PermissionGranted then
-      begin
-        ExecuteInBackground(
-          procedure
-          begin
-            // Background processing
-            tmp.Map(TMapAccess.ReadWrite, imgData);
-            haldclut.ApplyRawParallel(imgData, hald_clut);
-            tmp.Unmap(imgData);
-          end,
-          procedure
-          begin
-            // This is executed in the main thread
-            MobileService.save(tmp,
-              procedure(const ASaved: Boolean; const AErrorMessage: string)
-              var
-                Notification: TNotification;
-              begin
-                if ASaved then
-                begin
-                  if NotificationCenter1.Supported then
-                  begin
-                    Notification := NotificationCenter1.CreateNotification;
-                    Notification.Name := 'image processed success';
-                    Notification.AlertBody := 'Image saved successfully';
-                    Notification.FireDate := Now;
-                    NotificationCenter1.ScheduleNotification(Notification);
-                    Notification.Free;
-                  end;
-                end
-                else
-                begin
-                  ShowMessage('Failed to save image: ' + AErrorMessage);
-                end;
-                // Re-enable UI elements
-                FreeAndNil(tmp);
-                AniIndicator1.Enabled := False;
-                AniIndicator1.Visible := False;
-                btnSave.Enabled := True;
-                btnChoose.Enabled := True;
-                original.Enabled := True;
-                chrome.Enabled := True;
-                warm.Enabled := True;
-                cool.Enabled := True;
-                landscape.Enabled := True;
-                Image1.Enabled := True;
-                btnSave.Enabled := True;
-              end);
-          end
-        );
-      end
-      else
+      if not PermissionGranted then
       begin
         ShowMessage('Cannot save image without write permission.');
-        // Re-enable UI elements
-        FreeAndNil(tmp);
-        AniIndicator1.Enabled := False;
+        // Re-enable UI
         AniIndicator1.Visible := False;
+        AniIndicator1.Enabled := False;
         btnSave.Enabled := True;
         btnChoose.Enabled := True;
         original.Enabled := True;
@@ -641,9 +988,91 @@ begin
         cool.Enabled := True;
         landscape.Enabled := True;
         Image1.Enabled := True;
-        btnSave.Enabled := True;
+        Exit;
       end;
-    end);
+
+      // If permission is granted, create the TBitmap we want to save:
+      //tmp := TBitmap.Create;
+      //tmp.Assign(img);
+
+      // If needed, rotate
+      //if (FRotationAngle mod 360) <> 0 then
+       // tmp.Rotate(FRotationAngle mod 360);
+
+      // 3) If we *do* have a LUT:
+      if Assigned(hald_clut) then
+      begin
+        // run the background LUT
+        ExecuteInBackground(
+          procedure
+          begin
+
+
+            if tmp.Map(TMapAccess.ReadWrite, imgData) then
+              try
+                haldclut.ApplyRawParallel(imgData, hald_clut);
+              finally
+                tmp.Unmap(imgData);
+              end;
+          end,
+          procedure
+          begin
+            // now do MobileService.save
+            tmp2 := TBitmap.Create;
+            tmp2 := MakeRotatedCopy(tmp, FRotationAngle mod 360);
+            MobileService.save(tmp2,
+              procedure(const ASaved: Boolean; const AErrorMessage: string)
+              begin
+                if ASaved then
+                  ShowMessage('Image saved OK')
+                else
+                  ShowMessage('Failed to save: ' + AErrorMessage);
+
+                tmp.Free; // free after saving
+                // Re-enable UI
+                AniIndicator1.Visible := False;
+                AniIndicator1.Enabled := False;
+                btnSave.Enabled := True;
+                btnChoose.Enabled := True;
+                original.Enabled := True;
+                chrome.Enabled := True;
+                warm.Enabled := True;
+                cool.Enabled := True;
+                landscape.Enabled := True;
+                Image1.Enabled := True;
+              end
+            );
+          end
+        );
+      end
+      else
+      begin
+        // 4) ELSE => NO LUT. We skip ApplyRaw, but still call MobileService.save
+        MobileService.save(tmp,
+          procedure(const ASaved: Boolean; const AErrorMessage: string)
+          begin
+            if ASaved then
+              ShowMessage('Image saved OK')
+            else
+              ShowMessage('Failed to save: ' + AErrorMessage);
+
+            tmp.Free; // done with the bitmap
+            // re-enable UI
+            AniIndicator1.Visible := False;
+            AniIndicator1.Enabled := False;
+            btnSave.Enabled := True;
+            btnChoose.Enabled := True;
+            original.Enabled := True;
+            chrome.Enabled := True;
+            warm.Enabled := True;
+            cool.Enabled := True;
+            landscape.Enabled := True;
+            Image1.Enabled := True;
+          end
+        );
+      end;
+    end
+  );
   {$ELSE}
   // For non-Android platforms, proceed directly
   ExecuteInBackground(
@@ -662,6 +1091,7 @@ begin
   );
   {$ENDIF}
 end;
+
 {$ENDIF}
 
 {$IFDEF MSWINDOWS}
@@ -724,6 +1154,7 @@ begin
     Result := Result + '...';
 end;
 
+{
 procedure TForm1.LoadSharedImage(SharedUri: Jnet_Uri);
 var
   InputStream: JInputStream;
@@ -776,6 +1207,104 @@ begin
   if InputStream <> nil then
     InputStream.close;
 end;
+}
+
+
+procedure TForm1.LoadSharedImage(SharedUri: Jnet_Uri);
+var
+  InputStream: JInputStream;
+  MemoryStream: TMemoryStream;
+  OrientationValue: Integer;
+  RawBmp, RotatedBmp: TBitmap;
+begin
+  MemoryStream := TMemoryStream.Create;
+  try
+    // 1) Open InputStream
+    InputStream := TAndroidHelper.Context.getContentResolver.openInputStream(SharedUri);
+    if InputStream = nil then
+    begin
+      ShowMessage('Failed to open InputStream for the shared image. Possibly no permission.');
+      Exit;
+    end;
+
+    try
+      // 2) Read bytes into MemoryStream
+      TJavaInputStreamHelper.SaveToMemoryStream(InputStream, MemoryStream);
+    finally
+      InputStream.close;
+    end;
+
+    // 3) Check orientation from EXIF
+    OrientationValue := ReadExifOrientationFromJPEG(MemoryStream);
+    // e.g. 1=normal, 3=180°, 6=+90°, 8=+270°
+
+    // 4) Now load the TBitmap from the stream
+    MemoryStream.Position := 0;
+    RawBmp := TBitmap.Create;
+    try
+      RawBmp.LoadFromStream(MemoryStream);
+    except
+      RawBmp.Free;
+      raise; // or ShowMessage
+    end;
+
+    // 5) If orientation is 3,6,8, rotate
+    //showmessage ('orientation: ' + inttostr(orientationvalue));
+    case OrientationValue of
+      3:  RotatedBmp := RotateBitmapFMX(RawBmp, 180);
+      6:  RotatedBmp := RotateBitmapFMX(RawBmp, 90);
+      8:  RotatedBmp := RotateBitmapFMX(RawBmp, 270);
+    else
+      RotatedBmp := nil;  // orientation=1 => no rotate
+      //showmessage('rotation not needed');
+    end;
+
+    if Assigned(RotatedBmp) then
+    begin
+      try
+        //showmessage ('setting rotated bmp');
+        setimage(RotatedBmp);
+      finally
+        RotatedBmp.Free;
+      end;
+    end
+    else
+    begin
+      //showmessage ('setting rawbmp');
+      setimage(RawBmp);
+    end;
+    RawBmp.Free;
+
+  finally
+    MemoryStream.Free;
+  end;
+end;
+
+
+procedure TForm1.ReGenerateDisplay;
+var
+  SourceBmp: TBitmap;
+begin
+  // Figure out which big bitmap is the “base” for the user’s current choice
+  // If “original” is checked, that’s `img`.
+  // Otherwise, a processed LUT is in `prChrome/prWarm/prCool/prLandscape`.
+  if original.IsChecked then
+    SourceBmp := img
+  else
+  begin
+    SourceBmp := GetProcessedBitmap;
+    if not Assigned(SourceBmp) then
+      SourceBmp := img; // fallback if LUT not yet generated
+  end;
+
+  if not Assigned(SourceBmp) then Exit;
+
+  // Instead of physically rotating or calling setimage,
+  // just call the display function with the angle + scale
+  DisplayPreview(SourceBmp);
+end;
+
+
 
 procedure TForm1.FormCreate(Sender: TObject);
 var
@@ -788,6 +1317,8 @@ var
 {$ENDIF}
 begin
   inherited;
+  FRotationAngle := 0;
+  FJobToken := 0;
   prChrome := nil;
   prWarm := nil;
   prCool := nil;
@@ -902,6 +1433,11 @@ begin
   btnSave.Position.Y := btnChoose.Position.Y + btnChooseHald.Height + offsetBig; // Positioned next to Button1
   btnSave.Position.X := btnChoose.Position.X;
 
+  btnRotate.Width := offsetBig;// ScreenWidth / offsetQuart;
+  btnRotate.Height := offsetBig; // Same height as Button1
+  btnRotate.Position.Y := btnSave.Position.Y + btnChooseHald.Height + offsetBig; // Positioned next to Button1
+  btnRotate.Position.X := btnSave.Position.X;
+  btnRotate.Text := '⟳'; //rotate emoji
 
 
   original.GroupName := 'LUTOptions';
