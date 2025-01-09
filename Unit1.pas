@@ -8,7 +8,16 @@ uses
   FMX.Objects, FMX.Controls.Presentation,
   FMX.Layouts,      // for TLayout
   System.Threading, // for TProc
-  FMX.Gestures,     // for TGestureManager
+  FMX.Gestures,    // for TGestureManager
+{$IFDEF ANDROID}
+ Androidapi.JNI.GraphicsContentViewText, Androidapi.Helpers, FMX.Helpers.Android, Androidapi.JNI.Net, //for sharing from gallery
+  Androidapi.JNI.JavaTypes, // For JInputStream and similar
+  Androidapi.JNIBridge, // For IJavaObject
+  Androidapi.JNI.Provider, // Required for ContentResolver
+  FMX.Surfaces,            // For TBitmapSurface
+  System.IOUtils,         // For file path utilities
+  JavaInputStreamHelper,
+{$ENDIF}
    mobile, System.Notification; //for TNotification;
 
 type
@@ -26,7 +35,7 @@ type
     AniIndicator1: TAniIndicator;
     NotificationCenter1: TNotificationCenter;
     GestureManager1: TGestureManager;
-
+    procedure LoadSharedImage(SharedUri: Jnet_Uri);
     function GetCurrentLUT: TBitmap;
     procedure ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
     procedure DisableRadioButtons(Disable: Boolean);
@@ -241,11 +250,11 @@ begin
     begin
       try
         if Assigned(TaskProc) then
-          TaskProc();  // Execute the passed procedure on a background thread
+          TaskProc();  // execute the passed procedure on a background thread
         TThread.Queue(nil, procedure
           begin
             if Assigned(OnCompletion) then
-              OnCompletion();  // Execute completion on main thread
+              OnCompletion();  // execute completion on main thread
           end);
       except
         on E: Exception do
@@ -263,27 +272,27 @@ var
 begin
   if Assigned(smimg) then FreeAndNil(smimg);
   smimg := TBitmap.Create;
-  HighResFactor := 2.0;  // Adjust this value to increase the internal resolution of the image
+  HighResFactor := 2.0;  // adjust this value to increase the internal resolution of the image
   try
-    // Calculate individual scale factors for width and height
+    // calculate individual scale factors for width and height
     ScaleWidth := layImage.Width / img.Width;
     ScaleHeight := layImage.Height / img.Height;
-    // Use the smaller scale factor to ensure the entire image fits within the bounds
+    // use the smaller scale factor to ensure the entire image fits within the bounds
     ScaleFactor := Min(ScaleWidth, ScaleHeight) * HighResFactor;
-    // Set the size of the scaled image
+    // set the size of the scaled image
     smimg.SetSize(Round(img.Width * ScaleFactor), Round(img.Height * ScaleFactor));
-    // Render the scaled image
+    // render the scaled image
     smimg.Canvas.BeginScene;
     try
       smimg.Canvas.DrawBitmap(img, RectF(0, 0, img.Width, img.Height), RectF(0, 0, smimg.Width, smimg.Height), 1);
     finally
       smimg.Canvas.EndScene;
     end;
-    // Assign the scaled image to Image1 and adjust its display size to fit within layImage
+    // assign the scaled image to Image1 and adjust its display size to fit within layImage
     Image1.Bitmap.Assign(smimg);
     Image1.Width := Round(smimg.Width / HighResFactor);
     Image1.Height := Round(smimg.Height / HighResFactor);
-    // Center Image1 within layImage
+    // center Image1 within layImage
     Image1.Position.X := (layImage.Width - Image1.Width) / 2;
     Image1.Position.Y := 0;//(layImage.Height - Image1.Height) / 2;
     original.IsChecked := true;
@@ -334,19 +343,21 @@ end;
 }
 procedure TForm1.setimage(bmp: TBitmap);
 begin
+  //ShowMessage(Format('setimage called. bmp size: %dx%d', [bmp.Width, bmp.Height]));
   if Assigned(bmp) then
   begin
     if Assigned(img) then FreeAndNil(img);
     img := TBitmap.Create;
     img.Assign(bmp);
-    // Calculate the preview sizes based on the maximum allowable dimensions
+    // calculate the preview sizes based on the maximum allowable dimensions
     MaxPreviewWidth := Min(ScreenWidth * 2, img.Width);
     MaxPreviewHeight := Min(ScreenHeight * 2, img.Height);
-    // Reset zoom and pan settings
+    // reset zoom and pan settings
     FLastTouch := PointF(0, 0);
     FLastDistance := 0;
-    // Apply scaling and display the image
+    // apply scaling and display the image
     scaleAndShow;
+     //ShowMessage(Format('scaleAndShow done. Image1 size: %dx%d', [Round(Image1.Width), Round(Image1.Height)]));
     FInitialWidth := Image1.Width;
     FInitialHeight := Image1.Height;
   end;
@@ -403,7 +414,7 @@ end;
 
 function TForm1.GetProcessedBitmap: TBitmap;
 begin
-  // Return the correct processed bitmap based on the selected LUT
+  // return the correct processed bitmap based on the selected LUT
   if chrome.IsChecked then
     Result := prChrome
   else if warm.IsChecked then
@@ -489,12 +500,12 @@ procedure TForm1.RadioButtonChange(Sender: TObject);
 var
   imgData: TBitmapData;
 begin
-  if not Assigned(img) then Exit;  // Ensure there is an image loaded
+  if not Assigned(img) then Exit;  // ensure there is an image loaded
   if original.IsChecked then
   begin
-    Image1.Bitmap.Assign(smimg);  // Display the original image immediately
+    Image1.Bitmap.Assign(smimg);  // display the original image immediately
     btnSave.Visible := False;
-    Exit;  // No further processing needed
+    Exit;  // no further processing needed
   end;
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
@@ -541,18 +552,15 @@ var
   tmp: TBitmap;
   imgData: TBitmapData;
 begin
-  if not Assigned(img) then Exit;  // Ensure there is an image loaded
-
-  // Select the correct LUT based on the selected radio button
+  if not Assigned(img) then Exit;  // ensure there is an image loaded
+  // select the correct LUT based on the selected radio button
   if chrome.IsChecked then hald_clut := LUTChrome
   else if warm.IsChecked then hald_clut := LUTWarm
   else if cool.IsChecked then hald_clut := LUTCool
   else if landscape.IsChecked then hald_clut := LUTLandscape;
-
   tmp := TBitmap.Create;
   tmp.Assign(img);
-
-  // Start animation and disable UI elements
+  // start animation and disable UI elements
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
   btnSave.Enabled := False;
@@ -563,7 +571,81 @@ begin
   cool.Enabled := False;
   landscape.Enabled := False;
   Image1.Enabled := False;
-
+  {$IFDEF ANDROID}
+  MobileService.RequestWritePermission(
+    procedure(PermissionGranted: Boolean)
+    begin
+      if PermissionGranted then
+      begin
+        ExecuteInBackground(
+          procedure
+          begin
+            // Background processing
+            tmp.Map(TMapAccess.ReadWrite, imgData);
+            haldclut.ApplyRawParallel(imgData, hald_clut);
+            tmp.Unmap(imgData);
+          end,
+          procedure
+          begin
+            // This is executed in the main thread
+            MobileService.save(tmp,
+              procedure(const ASaved: Boolean; const AErrorMessage: string)
+              var
+                Notification: TNotification;
+              begin
+                if ASaved then
+                begin
+                  if NotificationCenter1.Supported then
+                  begin
+                    Notification := NotificationCenter1.CreateNotification;
+                    Notification.Name := 'image processed success';
+                    Notification.AlertBody := 'Image saved successfully';
+                    Notification.FireDate := Now;
+                    NotificationCenter1.ScheduleNotification(Notification);
+                    Notification.Free;
+                  end;
+                end
+                else
+                begin
+                  ShowMessage('Failed to save image: ' + AErrorMessage);
+                end;
+                // Re-enable UI elements
+                FreeAndNil(tmp);
+                AniIndicator1.Enabled := False;
+                AniIndicator1.Visible := False;
+                btnSave.Enabled := True;
+                btnChoose.Enabled := True;
+                original.Enabled := True;
+                chrome.Enabled := True;
+                warm.Enabled := True;
+                cool.Enabled := True;
+                landscape.Enabled := True;
+                Image1.Enabled := True;
+                btnSave.Enabled := True;
+              end);
+          end
+        );
+      end
+      else
+      begin
+        ShowMessage('Cannot save image without write permission.');
+        // Re-enable UI elements
+        FreeAndNil(tmp);
+        AniIndicator1.Enabled := False;
+        AniIndicator1.Visible := False;
+        btnSave.Enabled := True;
+        btnChoose.Enabled := True;
+        original.Enabled := True;
+        chrome.Enabled := True;
+        warm.Enabled := True;
+        cool.Enabled := True;
+        landscape.Enabled := True;
+        Image1.Enabled := True;
+        btnSave.Enabled := True;
+      end;
+    end);
+  {$ELSE}
+  // For non-Android platforms, proceed directly
   ExecuteInBackground(
     procedure
     begin
@@ -575,44 +657,10 @@ begin
     procedure
     begin
       // This is executed in the main thread
-      MobileService.save(tmp,
-        procedure(const ASaved: Boolean; const AErrorMessage: string)
-        var
-          Notification: TNotification;
-        begin
-          if ASaved then
-          begin
-            if NotificationCenter1.Supported then
-            begin
-              Notification := NotificationCenter1.CreateNotification;
-              Notification.Name := 'image processed success';
-              Notification.AlertBody := 'Image saved successfully';
-              Notification.FireDate := Now;
-              NotificationCenter1.ScheduleNotification(Notification);
-              Notification.Free;
-            end;
-          end
-          else
-          begin
-            ShowMessage('Failed to save image: ' + AErrorMessage);
-          end;
-
-          // Re-enable UI elements
-          FreeAndNil(tmp);
-          AniIndicator1.Enabled := False;
-          AniIndicator1.Visible := False;
-          btnSave.Enabled := True;
-          btnChoose.Enabled := True;
-          original.Enabled := True;
-          chrome.Enabled := True;
-          warm.Enabled := True;
-          cool.Enabled := True;
-          landscape.Enabled := True;
-          Image1.Enabled := True;
-          btnSave.Enabled := True;
-        end);
+      // Your save logic for other platforms
     end
   );
+  {$ENDIF}
 end;
 {$ENDIF}
 
@@ -659,10 +707,85 @@ begin
 end;
 {$ENDIF}
 
+
+function HexPreview(MS: TMemoryStream; MaxBytes: Integer = 32): string;
+var
+  Data: TBytes;
+  i: Integer;
+begin
+  Result := '';
+  if not Assigned(MS) or (MS.Size = 0) then Exit('(empty)');
+  MS.Position := 0;
+  SetLength(Data, MS.Size);
+  MS.ReadBuffer(Data[0], MS.Size);
+  for i := 0 to Min(MS.Size, MaxBytes) - 1 do
+    Result := Result + IntToHex(Data[i], 2) + ' ';
+  if MS.Size > MaxBytes then
+    Result := Result + '...';
+end;
+
+procedure TForm1.LoadSharedImage(SharedUri: Jnet_Uri);
+var
+  InputStream: JInputStream;
+  MemoryStream: TMemoryStream;
+  Bitmap: TBitmap;
+begin
+  // memory stream to hold the image data
+  MemoryStream := TMemoryStream.Create;
+  InputStream := nil;
+
+  try
+    // Request the content resolver to open the input stream
+    InputStream := TAndroidHelper.Context.getContentResolver.openInputStream(SharedUri);
+
+    if InputStream = nil then
+    begin
+      ShowMessage('Failed to open InputStream for the shared image. Possibly no permission.');
+      Exit;
+    end;
+
+
+    TJavaInputStreamHelper.SaveToMemoryStream(InputStream, MemoryStream);
+
+    //ShowMessage('First bytes of stream: ' + HexPreview(MemoryStream, 32));
+
+    //ShowMessage('MemoryStream.Size = ' + MemoryStream.Size.ToString);
+    // for debug
+    //MemoryStream.SaveToFile(TPath.Combine(TPath.GetDocumentsPath, 'shared_dump.bin'));
+
+   MemoryStream.Position := 0;
+
+
+    Bitmap := TBitmap.Create;
+    try
+      Bitmap.LoadFromStream(MemoryStream);
+      setimage(Bitmap);
+    finally
+      Bitmap.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+
+      ShowMessage('Error loading shared image: ' + E.Message);
+    end;
+  end;
+
+  // cleanup
+  MemoryStream.Free;
+  if InputStream <> nil then
+    InputStream.close;
+end;
+
 procedure TForm1.FormCreate(Sender: TObject);
 var
   ResourceStream: TResourceStream;
   StyleObj: TFmxObject;
+{$IFDEF ANDROID}
+  Intent: JIntent;
+  SharedUri: Jnet_Uri;
+  SharedPath: string;
+{$ENDIF}
 begin
   inherited;
   prChrome := nil;
@@ -706,11 +829,11 @@ begin
   layImage.Position.X := 0; layImage.Position.Y := 0;
   layImage.Width := ScreenWidth - offsetHalf;
   layImage.Height := ScreenHeight / 2;
-  layImage.SetBounds(0, 0, ScreenWidth - offsetHalf, ScreenHeight / 2);  // Adjust size to match where you want Image1
+  layImage.SetBounds(0, 0, ScreenWidth - offsetHalf, ScreenHeight / 2);
   layImage.ClipChildren := True;
 
 
-  // Set up Image1
+  // set up Image1
   Image1.Parent := layImage;
   Image1.Align := TAlignLayout.None;
   Image1.SetBounds(0, 0, layImage.Width, layImage.Height);
@@ -786,16 +909,16 @@ begin
   warm.GroupName := 'LUTOptions';
   cool.GroupName := 'LUTOptions';
   landscape.GroupName := 'LUTOptions';
-  original.IsChecked := True; // Default selection
+  original.IsChecked := True; // default selection
 
   original.OnChange := RadioButtonChange;
   chrome.OnChange := RadioButtonChange;
   warm.OnChange := RadioButtonChange;
   cool.OnChange := RadioButtonChange;
   landscape.OnChange := RadioButtonChange;
-  {$IFDEF ANDROID or IOS}
-  MobileService := TMobileService.Create(Self);
-  {$ENDIF}
+  //{$IFDEF ANDROID or IOS}
+  //MobileService := TMobileService.Create(Self);
+  //{$ENDIF}
 
   NotificationCenter1 := TNotificationCenter.Create(Self);
   //NotificationCenter1.OnReceiveLocalNotification := HandleNotification;
@@ -841,6 +964,55 @@ begin
   finally
     ResourceStream.Free;
   end;
+
+{$IFDEF ANDROID}
+MobileService := TMobileService.Create(Self);
+Intent := TAndroidHelper.Activity.getIntent;
+if (Intent <> nil) then
+begin
+  //ShowMessage('Intent Action: ' + JStringToString(Intent.getAction));
+  //ShowMessage('Intent Type: ' + JStringToString(Intent.getType));
+
+  if Intent.getAction.equals(TJIntent.JavaClass.ACTION_SEND) then
+  begin
+    SharedUri := TJNet_Uri.Wrap((Intent.getParcelableExtra(TJIntent.JavaClass.EXTRA_STREAM) as ILocalObject).GetObjectID);
+
+    if SharedUri <> nil then
+    begin
+      // request read permission first
+      MobileService.RequestReadPermission(
+        procedure(PermissionGranted: Boolean)
+        begin
+          if PermissionGranted then
+            LoadSharedImage(SharedUri)
+          else
+            ShowMessage('Cannot read shared image: read permission denied.');
+        end
+      );
+    end
+    else
+    begin
+      ShowMessage('Error: SharedUri is nil.');
+      if not Intent.hasExtra(TJIntent.JavaClass.EXTRA_STREAM) then
+      begin
+        // fallback: check getData or clipData
+        if (Intent.getData <> nil) then
+          SharedUri := Intent.getData
+        else
+          if (Intent.getClipData <> nil) and (Intent.getClipData.getItemCount > 0)
+          then begin
+            SharedUri := Intent.getClipData.getItemAt(0).getUri;
+          end;
+        end;
+    end;
+  end
+  else
+  begin
+    //ShowMessage('Error: Invalid intent action or type.');
+  end;
+end;
+{$ENDIF}
+
 end;
 
 procedure TForm1.FormDestroy(Sender: TObject);

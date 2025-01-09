@@ -195,6 +195,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="hald\color_checker.png" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>chromatika\assets\internal\</RemoteDir>
+            <RemoteName>color_checker.png</RemoteName>
+            <DeployClass>ProjectFile</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="hald\color_checker.png" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\assets\internal\</RemoteDir>
             <RemoteName>color_checker.png</RemoteName>
@@ -262,6 +271,15 @@
             <RemoteDir>chromatika\</RemoteDir>
             <RemoteName>AndroidManifest.xml</RemoteName>
             <DeployClass>ProjectAndroidManifest</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="Android64\Debug\colors-night-v21.xml" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>chromatika\res\values-night-v21\</RemoteDir>
+            <RemoteName>colors.xml</RemoteName>
+            <DeployClass>Android_ColorsDark</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -371,6 +389,15 @@
             <RemoteDir>chromatika\res\drawable-xlarge\</RemoteDir>
             <RemoteName>splash_image.png</RemoteName>
             <DeployClass>Android_SplashImage960</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="Android64\Release\provider_paths.xml" Condition="'$(Config)'=='Release'">
+            <RemoteDir>chromatika\res\xml\</RemoteDir>
+            <RemoteName>provider_paths.xml</RemoteName>
+            <DeployClass>AndroidFileProvider</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -658,7 +685,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\lib\android\debug\armeabi\libnative-activity.so" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="$(BDS)\lib\android\release\armeabi\libnative-activity.so" Condition="'$(Config)'=='Debug'">
             <RemoteDir>chromatika\library\lib\armeabi\</RemoteDir>
             <RemoteName>libProject1.so</RemoteName>
             <DeployClass>AndroidLibnativeArmeabiFile</DeployClass>
@@ -686,6 +713,15 @@
             <Overwrite>True</Overwrite>
         </DeployFile>
         <DeployFile Include="hald\color_checker.png" Condition="'$(Config)'=='Release'">
+            <RemoteDir>chromatika\assets\internal\</RemoteDir>
+            <RemoteName>color_checker.png</RemoteName>
+            <DeployClass>ProjectFile</DeployClass>
+            <Operation>0</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="hald\color_checker.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>chromatika\assets\internal\</RemoteDir>
             <RemoteName>color_checker.png</RemoteName>
             <DeployClass>ProjectFile</DeployClass>
@@ -743,6 +779,15 @@
             <RemoteDir>chromatika\res\drawable-xxhdpi\</RemoteDir>
             <RemoteName>ic_launcher.png</RemoteName>
             <DeployClass>Android_LauncherIcon144</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="Android\Debug\colors-night-v21.xml" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>chromatika\res\values-night-v21\</RemoteDir>
+            <RemoteName>colors.xml</RemoteName>
+            <DeployClass>Android_ColorsDark</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -893,7 +938,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\lib\android\debug\mips\libnative-activity.so" Condition="'$(Config)'=='Debug'">
+        <DeployFile Include="$(BDS)\lib\android\release\mips\libnative-activity.so" Condition="'$(Config)'=='Debug'">
             <RemoteDir>chromatika\library\lib\mips\</RemoteDir>
             <RemoteName>libProject1.so</RemoteName>
             <DeployClass>AndroidLibnativeMipsFile</DeployClass>

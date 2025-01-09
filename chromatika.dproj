@@ -289,10 +289,9 @@
         <Android_NotificationIcon72>icons\chromatika_72x72.png</Android_NotificationIcon72>
         <Android_NotificationIcon96>icons\chromatika_96x96.png</Android_NotificationIcon96>
         <BT_BuildType>AppStore</BT_BuildType>
-        <PF_KeyStore>..\keystore\android_key\norayr.keystore</PF_KeyStore>
-        <PF_KeyStorePass>852E47C65F92079FCF3CE526A45F7BB7E44E0519A05A97D897C80FA28E363C94DB04A390E34B1C31C1B15774FAD1C339BABA3609043F22FC1657458CE5A722CFC949F31FD555FAFEBFE4AF0D07551D589201</PF_KeyStorePass>
-        <PF_AliasKey>norayr</PF_AliasKey>
-        <PF_AliasKeyPass>852E47C65F92079FCF3CE526A45F7BB7E44E0519A05A97D897C80FA28E363C94DB04A390E34B1C31C1B15774FAD1C339BABA3609043F22FC1657458CE5A722CFC949F31FD555FAFEBFE4AF0D07551D589201</PF_AliasKeyPass>
+        <EL_SecureFileSharing>true</EL_SecureFileSharing>
+        <Android_BackgroundColor>#FFFFFF</Android_BackgroundColor>
+        <Android_DarkBackgroundColor>#000000</Android_DarkBackgroundColor>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Android64)'!=''">
         <VerInfo_Build>1</VerInfo_Build>
@@ -308,10 +307,9 @@
         <Android_NotificationIcon48>icons\chromatika_48x48.png</Android_NotificationIcon48>
         <Android_NotificationIcon72>icons\chromatika_72x72.png</Android_NotificationIcon72>
         <Android_NotificationIcon96>icons\chromatika_96x96.png</Android_NotificationIcon96>
-        <PF_KeyStore>..\keystore\android_key\norayr.keystore</PF_KeyStore>
-        <PF_KeyStorePass>852E47C65F92079FCF3CE526A45F7BB7E44E0519A05A97D897C80FA28E363C94DB04A390E34B1C31C1B15774FAD1C339BABA3609043F22FC1657458CE5A722CFC949F31FD555FAFEBFE4AF0D07551D589201</PF_KeyStorePass>
-        <PF_AliasKey>norayr</PF_AliasKey>
-        <PF_AliasKeyPass>852E47C65F92079FCF3CE526A45F7BB7E44E0519A05A97D897C80FA28E363C94DB04A390E34B1C31C1B15774FAD1C339BABA3609043F22FC1657458CE5A722CFC949F31FD555FAFEBFE4AF0D07551D589201</PF_AliasKeyPass>
+        <EL_SecureFileSharing>true</EL_SecureFileSharing>
+        <Android_BackgroundColor>#FFFFFF</Android_BackgroundColor>
+        <Android_DarkBackgroundColor>#000000</Android_DarkBackgroundColor>
         <VerInfo_Keys>package=am.norayr.$(MSBuildProjectName);label=$(MSBuildProjectName);versionCode=1;versionName=1.0.0;persistent=False;restoreAnyVersion=False;installLocation=auto;largeHeap=False;theme=TitleBar;hardwareAccelerated=true;apiKey=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
@@ -346,6 +344,9 @@
         <AUP_CALL_PHONE>false</AUP_CALL_PHONE>
         <AUP_CAMERA>false</AUP_CAMERA>
         <AUP_READ_PHONE_STATE>false</AUP_READ_PHONE_STATE>
+        <EL_SecureFileSharing>true</EL_SecureFileSharing>
+        <Android_BackgroundColor>#FFFFFF</Android_BackgroundColor>
+        <Android_DarkBackgroundColor>#000000</Android_DarkBackgroundColor>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Android64)'!=''">
         <VerInfo_Build>1</VerInfo_Build>
@@ -370,6 +371,7 @@
         <AUP_READ_MEDIA_VIDEO>true</AUP_READ_MEDIA_VIDEO>
         <AUP_READ_MEDIA_AUDIO>true</AUP_READ_MEDIA_AUDIO>
         <AUP_WRITE_EXTERNAL_STORAGE>true</AUP_WRITE_EXTERNAL_STORAGE>
+        <EL_SecureFileSharing>true</EL_SecureFileSharing>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
@@ -561,12 +563,6 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="$(BDS)\lib\android\debug\armeabi\libnative-activity.so" Configuration="Debug" Class="AndroidLibnativeArmeabiFile">
-                    <Platform Name="Android">
-                        <RemoteName>libProject1.so</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="$(BDS)\lib\android\debug\armeabi\libnative-activity.so" Configuration="Debug" Class="AndroidLibnativeArmeabiFile">
                     <Platform Name="Android64">
                         <Enabled>false</Enabled>
                         <RemoteName>libchromatika.so</RemoteName>
@@ -583,12 +579,6 @@
                     <Platform Name="Android64">
                         <Enabled>false</Enabled>
                         <RemoteName>libchromatika.so</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="$(BDS)\lib\android\debug\mips\libnative-activity.so" Configuration="Debug" Class="AndroidLibnativeMipsFile">
-                    <Platform Name="Android">
-                        <RemoteName>libProject1.so</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -614,7 +604,19 @@
                 </DeployFile>
                 <DeployFile LocalName="$(BDS)\lib\android\release\armeabi\libnative-activity.so" Configuration="Debug" Class="AndroidLibnativeArmeabiFile">
                     <Platform Name="Android">
+                        <RemoteName>libProject1.so</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\lib\android\release\armeabi\libnative-activity.so" Configuration="Debug" Class="AndroidLibnativeArmeabiFile">
+                    <Platform Name="Android">
                         <RemoteName>libchromatika.so</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="$(BDS)\lib\android\release\mips\libnative-activity.so" Configuration="Debug" Class="AndroidLibnativeMipsFile">
+                    <Platform Name="Android">
+                        <RemoteName>libProject1.so</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -637,6 +639,12 @@
                 <DeployFile LocalName="Android64\Debug\chromatika.classes" Configuration="Debug" Class="AndroidClasses">
                     <Platform Name="Android64">
                         <Operation>64</Operation>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Android64\Debug\colors-night-v21.xml" Configuration="Debug" Class="Android_ColorsDark">
+                    <Platform Name="Android64">
+                        <RemoteName>colors.xml</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -700,6 +708,11 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="Android64\Release\provider_paths.xml" Configuration="Release" Class="AndroidFileProvider">
+                    <Platform Name="Android64">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="Android64\Release\splash_image_def.xml" Configuration="Release" Class="AndroidSplashImageDef">
                     <Platform Name="Android64">
                         <Overwrite>true</Overwrite>
@@ -729,6 +742,12 @@
                 <DeployFile LocalName="Android\Debug\chromatika.classes" Configuration="Debug" Class="AndroidClasses">
                     <Platform Name="Android">
                         <Operation>64</Operation>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Android\Debug\colors-night-v21.xml" Configuration="Debug" Class="Android_ColorsDark">
+                    <Platform Name="Android">
+                        <RemoteName>colors.xml</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -858,6 +877,18 @@
                 <DeployFile LocalName="hald\chrome.png" Configuration="Release" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="hald\color_checker.png" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Android">
+                        <RemoteDir>.\assets\internal\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="hald\color_checker.png" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Android64">
+                        <RemoteDir>.\assets\internal\</RemoteDir>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

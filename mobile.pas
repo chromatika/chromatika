@@ -3,9 +3,18 @@ unit mobile;
 interface
 
 uses
-  FMX.Graphics, System.SysUtils, System.Classes, System.Types, System.Permissions,
-  System.UITypes, FMX.ActnList, FMX.MediaLibrary.Actions, Androidapi.Helpers,
-  Androidapi.JNI.Os, System.Messaging;
+  FMX.Graphics,
+  System.SysUtils,
+  System.Classes,
+  System.Types,
+  System.Permissions,
+  System.UITypes,
+  FMX.ActnList,
+  FMX.MediaLibrary.Actions,
+  Androidapi.Helpers,
+  Androidapi.JNI.Os,
+  Androidapi.JNI.JavaTypes,  // Needed for JStringToString
+  FMX.DialogService;         // Needed for TDialogService.ShowMessage
 
 type
   TImageProcessedCallback = reference to procedure(Bitmap: TBitmap);
@@ -18,33 +27,52 @@ type
     FSaveCompletion: TSaveImageCompletionEvent;
     FASaved: Boolean;
     FAResultMessage: string;
+    FPermissionCallback: TPermissionRequestResult;
+    FCompletion: TSaveImageCompletionEvent;
+
+    // Private Methods
     procedure SaveImageCompletion(const ASaved: Boolean; const AResultMessage: string);
     procedure ConfigureMaxImageSize;
     procedure DoSaveImageCompletion;
-    procedure DoExecuteTakePhoto;
-    procedure DoShowPermissionError;
+    procedure DoSaveNotSupported;
+    procedure DisplayRationale(Sender: TObject; const APermissions: TClassicStringDynArray; const APostRationaleProc: TProc);
+    procedure PermissionRequestResult(Sender: TObject; const APermissions: TClassicStringDynArray; const AGrantResults: TClassicPermissionStatusDynArray);
   public
     ActionList1: TActionList;
     TakePhotoFromLibraryAction1: TTakePhotoFromLibraryAction;
     namePath: string;
     clbk: TImageProcessedCallback;
+
+    // Constructor and Destructor
     constructor Create(AOwner: TComponent);
     destructor Destroy; override;
-    procedure PermissionResult(Sender: TObject; const APermissions: TClassicStringDynArray;
-      const AGrantResults: TClassicPermissionStatusDynArray);
+
+    // Public Methods
     procedure RequestWritePermission(Callback: TPermissionRequestResult);
-    procedure DisplayRationale(Sender: TObject; const APermissions: TArray<string>;
-      const APostRationaleProc: TProc);
-    procedure TakePhotoFromLibraryAction1DidFinishTaking(Image: TBitmap);
+    procedure RequestReadPermission(Callback: TPermissionRequestResult);
     procedure choose(Callback: TImageProcessedCallback);
-    procedure CheckAndRequestPermissions;
-    function save(tmp: TBitmap; Completion: TSaveImageCompletionEvent): boolean;
+    procedure TakePhotoFromLibraryAction1DidFinishTaking(Image: TBitmap);
+    function save(tmp: TBitmap; Completion: TSaveImageCompletionEvent): Boolean;
   end;
 
 implementation
 
 uses
-  FMX.DialogService, FMX.MediaLibrary, FMX.Platform, System.Math, FMX.Dialogs, System.Threading;
+  FMX.MediaLibrary,
+  FMX.Platform,
+  System.Math;
+
+{ Conditional declarations for Android 13+ permissions }
+const
+  {$IF CompilerVersion >= 35.0} // Adjust for Delphi version compatibility
+  PERMISSION_READ_MEDIA_IMAGES = 'android.permission.READ_MEDIA_IMAGES';
+  PERMISSION_READ_MEDIA_VIDEO = 'android.permission.READ_MEDIA_VIDEO';
+  PERMISSION_READ_MEDIA_AUDIO = 'android.permission.READ_MEDIA_AUDIO';
+  {$ELSE}
+  PERMISSION_READ_MEDIA_IMAGES = '';
+  PERMISSION_READ_MEDIA_VIDEO = '';
+  PERMISSION_READ_MEDIA_AUDIO = '';
+  {$ENDIF}
 
 { TMobileService }
 
@@ -66,51 +94,6 @@ begin
   inherited;
 end;
 
-procedure TMobileService.SaveImageCompletion(const ASaved: Boolean; const AResultMessage: string);
-begin
-  FASaved := ASaved;
-  FAResultMessage := AResultMessage;
-  TThread.Queue(nil, DoSaveImageCompletion);
-end;
-
-procedure TMobileService.DoSaveImageCompletion;
-begin
-  if not FASaved then
-  begin
-    ShowMessage('SaveImageCompletion Error: ' + FAResultMessage);
-  end;
-
-  if Assigned(FSaveCompletion) then
-    FSaveCompletion(FASaved, FAResultMessage);
-end;
-
-procedure TMobileService.RequestWritePermission(Callback: TPermissionRequestResult);
-var
-  Permissions: TArray<string>;
-begin
-  {$IFDEF ANDROID}
-  Permissions := [JStringToString(TJManifest_permission.JavaClass.WRITE_EXTERNAL_STORAGE)];
-  PermissionsService.RequestPermissions(Permissions,
-    procedure(const APermissions: TArray<string>; const AGrantResults: TArray<TPermissionStatus>)
-    begin
-      if (Length(AGrantResults) > 0) and (AGrantResults[0] = TPermissionStatus.Granted) then
-        Callback(True)
-      else
-        Callback(False);
-    end,
-    procedure(const APermissions: TArray<string>; const APostRationaleProc: TProc)
-    begin
-      FMX.DialogService.TDialogService.ShowMessage('The app needs permission to save images.',
-        procedure(const AResult: TModalResult)
-        begin
-          APostRationaleProc;
-        end);
-    end);
-  {$ELSE}
-  Callback(True);
-  {$ENDIF}
-end;
-
 procedure TMobileService.ConfigureMaxImageSize;
 begin
   // Configure as needed
@@ -118,129 +101,174 @@ begin
   TakePhotoFromLibraryAction1.MaxWidth := 5000;
 end;
 
-procedure TMobileService.CheckAndRequestPermissions;
-var
-  Permissions: TArray<string>;
+procedure TMobileService.SaveImageCompletion(const ASaved: Boolean; const AResultMessage: string);
 begin
-  {$IFDEF ANDROID}
-  if TOSVersion.Check(13) then
+  FASaved := ASaved;
+  FAResultMessage := AResultMessage;
+  TThread.Synchronize(nil, DoSaveImageCompletion);
+end;
+
+procedure TMobileService.DoSaveImageCompletion;
+begin
+  if not FASaved then
   begin
-    // Android 13 and above
-    Permissions := [
-      JStringToString(TJManifest_permission.JavaClass.READ_MEDIA_IMAGES),
-      JStringToString(TJManifest_permission.JavaClass.READ_MEDIA_VIDEO),
-      JStringToString(TJManifest_permission.JavaClass.READ_MEDIA_AUDIO)
-    ];
-  end
-  else if TOSVersion.Check(10) then
-  begin
-    // Android 10 to 12
-    Permissions := [
-      JStringToString(TJManifest_permission.JavaClass.READ_EXTERNAL_STORAGE)
-    ];
-  end
-  else
-  begin
-    // Below Android 10 (including Android 9)
-    Permissions := [
-      JStringToString(TJManifest_permission.JavaClass.READ_EXTERNAL_STORAGE),
-      JStringToString(TJManifest_permission.JavaClass.WRITE_EXTERNAL_STORAGE)
-    ];
+    TDialogService.ShowMessage('SaveImageCompletion Error: ' + FAResultMessage);
   end;
-
-  PermissionsService.RequestPermissions(Permissions, Self.PermissionResult, Self.DisplayRationale);
-  {$ENDIF}
+  if Assigned(FSaveCompletion) then
+    FSaveCompletion(FASaved, FAResultMessage);
 end;
 
-procedure TMobileService.choose(Callback: TImageProcessedCallback);
+procedure TMobileService.DoSaveNotSupported;
 begin
-  clbk := Callback;
-  {$IFDEF ANDROID}
-  WaitingForPermissionToOpenGallery := True;
-  CheckAndRequestPermissions;
-  {$ELSE}
-  TakePhotoFromLibraryAction1.Execute;
-  {$ENDIF}
+  if Assigned(FCompletion) then
+    FCompletion(False, 'PhotoLibraryService not supported.');
 end;
 
-procedure TMobileService.DisplayRationale(Sender: TObject; const APermissions: TArray<string>;
-  const APostRationaleProc: TProc);
-begin
-  FMX.DialogService.TDialogService.ShowMessage('The application needs to access your photo library to choose photos.',
-    procedure(const AResult: TModalResult)
-    begin
-      APostRationaleProc(); // Call the post-rationale procedure to request permission again
-    end);
-end;
-
-procedure TMobileService.PermissionResult(Sender: TObject; const APermissions: TClassicStringDynArray;
+procedure TMobileService.PermissionRequestResult(Sender: TObject; const APermissions: TClassicStringDynArray;
   const AGrantResults: TClassicPermissionStatusDynArray);
 var
-  AllPermissionsGranted: Boolean;
+  PermissionGranted: Boolean;
   i: Integer;
 begin
-  AllPermissionsGranted := True;
+  PermissionGranted := True;
   for i := 0 to Length(AGrantResults) - 1 do
   begin
     if AGrantResults[i] <> TPermissionStatus.Granted then
     begin
-      AllPermissionsGranted := False;
+      PermissionGranted := False;
       Break;
     end;
   end;
 
-  if AllPermissionsGranted then
+  if Assigned(FPermissionCallback) then
+    FPermissionCallback(PermissionGranted);
+
+  {$IFDEF ANDROID}
+  if WaitingForPermissionToOpenGallery then
   begin
-    TThread.Queue(nil, DoExecuteTakePhoto);
+    WaitingForPermissionToOpenGallery := False;
+    if PermissionGranted then
+      TakePhotoFromLibraryAction1.Execute
+    else
+      TDialogService.ShowMessage('Cannot proceed without the required permissions.');
+  end;
+  {$ENDIF}
+end;
+
+procedure TMobileService.DisplayRationale(Sender: TObject; const APermissions: TClassicStringDynArray;
+  const APostRationaleProc: TProc);
+begin
+  TDialogService.ShowMessage('The application needs permission to access your photo library.',
+    procedure(const AResult: TModalResult)
+    begin
+      APostRationaleProc;
+    end);
+end;
+
+procedure TMobileService.RequestWritePermission(Callback: TPermissionRequestResult);
+var
+  Permissions: TArray<string>;
+begin
+  {$IFDEF ANDROID}
+  FPermissionCallback := Callback;
+  if TOSVersion.Check(13) then
+  begin
+    Permissions := [
+      PERMISSION_READ_MEDIA_IMAGES,
+      PERMISSION_READ_MEDIA_VIDEO,
+      PERMISSION_READ_MEDIA_AUDIO
+    ];
   end
   else
   begin
-    TThread.Queue(nil, DoShowPermissionError);
+    Permissions := [
+      JStringToString(TJManifest_permission.JavaClass.WRITE_EXTERNAL_STORAGE)
+    ];
   end;
+  PermissionsService.RequestPermissions(Permissions, PermissionRequestResult, DisplayRationale);
+  {$ELSE}
+  Callback(True);
+  {$ENDIF}
 end;
 
-procedure TMobileService.DoExecuteTakePhoto;
+procedure TMobileService.RequestReadPermission(Callback: TPermissionRequestResult);
+var
+  Permissions: TArray<string>;
 begin
-  if WaitingForPermissionToOpenGallery then
+  FPermissionCallback := Callback;
+
+  if TOSVersion.Check(13) then
   begin
-    TakePhotoFromLibraryAction1.Execute;
-    WaitingForPermissionToOpenGallery := False;
+    // If targeting Android 13 (API 33+):
+    Permissions := [ PERMISSION_READ_MEDIA_IMAGES ];
+  end
+  else
+  begin
+    // For older devices
+    Permissions := [
+      JStringToString(TJManifest_permission.JavaClass.READ_EXTERNAL_STORAGE)
+    ];
   end;
+
+  // Now request them with the same mechanism you used for WRITE.
+  PermissionsService.RequestPermissions(
+    Permissions,
+    PermissionRequestResult,   // your same callback
+    DisplayRationale          // your same rationale routine
+  );
 end;
 
-procedure TMobileService.DoShowPermissionError;
+procedure TMobileService.choose(Callback: TImageProcessedCallback);
+var
+  Permissions: TArray<string>;
 begin
-  ShowMessage('Cannot proceed without the required permissions.');
+  clbk := Callback;
+  {$IFDEF ANDROID}
+  WaitingForPermissionToOpenGallery := True;
+  if TOSVersion.Check(13) then
+  begin
+    Permissions := [
+      PERMISSION_READ_MEDIA_IMAGES,
+      PERMISSION_READ_MEDIA_VIDEO,
+      PERMISSION_READ_MEDIA_AUDIO
+    ];
+  end
+  else
+  begin
+    Permissions := [
+      JStringToString(TJManifest_permission.JavaClass.READ_EXTERNAL_STORAGE)
+    ];
+  end;
+  PermissionsService.RequestPermissions(Permissions, PermissionRequestResult, DisplayRationale);
+  {$ELSE}
+  TakePhotoFromLibraryAction1.Execute;
+  {$ENDIF}
 end;
 
 procedure TMobileService.TakePhotoFromLibraryAction1DidFinishTaking(Image: TBitmap);
 begin
   if Assigned(Image) then
   begin
-    namePath := TakePhotoFromLibraryAction1.GetNamePath;
-    Self.clbk(Image);
+    if Assigned(clbk) then
+      clbk(Image);
   end;
 end;
 
-function TMobileService.save(tmp: TBitmap; Completion: TSaveImageCompletionEvent): boolean;
+function TMobileService.save(tmp: TBitmap; Completion: TSaveImageCompletionEvent): Boolean;
 var
   PhotoLibraryService: IFMXPhotoLibrary;
 begin
   if TPlatformServices.Current.SupportsPlatformService(IFMXPhotoLibrary, IInterface(PhotoLibraryService)) then
   begin
-    FSaveCompletion := Completion;  // Store the completion callback
-    PhotoLibraryService.AddImageToSavedPhotosAlbum(tmp, SaveImageCompletion);  // Pass the method
+    FSaveCompletion := Completion;
+    PhotoLibraryService.AddImageToSavedPhotosAlbum(tmp, SaveImageCompletion);
     Result := True;
   end
   else
   begin
     Result := False;
-    TThread.Queue(nil,
-      procedure
-      begin
-        if Assigned(Completion) then
-          Completion(False, 'PhotoLibraryService not supported.');
-      end);
+    FCompletion := Completion;
+    TThread.Synchronize(nil, DoSaveNotSupported);
   end;
 end;
 

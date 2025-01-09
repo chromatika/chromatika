@@ -7,22 +7,24 @@
     android:versionName="%versionName%"
     android:installLocation="%installLocation%">
     <uses-sdk android:minSdkVersion="%minSdkVersion%" android:targetSdkVersion="%targetSdkVersion%" />
-<%uses-permission%>
+    <%uses-permission%>
     <uses-feature android:glEsVersion="0x00020000" android:required="true"/>
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-<!-- New permissions for Android 13+ -->
-<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- New permissions for Android 13+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <queries>
-<%queries-child-elements%>
+        <%queries-child-elements%>
     </queries>
+
     <application
+        android:launchMode="singleTop"
         android:persistent="%persistent%"
         android:restoreAnyVersion="%restoreAnyVersion%"
         android:label="%label%"
@@ -32,10 +34,12 @@
         android:theme="%theme%"
         android:hardwareAccelerated="%hardwareAccelerated%"
         android:resizeableActivity="true">
-<%provider%>
-<%application-meta-data%>
-<%uses-libraries%>
-        <!-- Trigger Google Play services to install the backported photo picker module. -->
+
+
+        <%application-meta-data%>
+        <%uses-libraries%>
+
+        <!-- Trigger Google Play services to install the backported photo picker module -->
         <service
             android:name="com.google.android.gms.metadata.ModuleDependencies"
             android:enabled="false"
@@ -47,26 +51,35 @@
 
             <meta-data android:name="photopicker_activity:0:required" android:value="" />
         </service>
-<%services%>
-        <!-- Our activity is a subclass of the built-in NativeActivity framework class.
-             This will take care of integrating with our NDK code. -->
-        <activity
-            android:name="com.embarcadero.firemonkey.FMXNativeActivity"
-            android:exported="true"
-            android:label="%activityLabel%"
-            android:configChanges="orientation|keyboard|keyboardHidden|screenSize|screenLayout|uiMode"
-            android:launchMode="singleTask">
-            <!-- Tell NativeActivity the name of our .so -->
-            <meta-data android:name="android.app.lib_name" android:value="%libNameValue%" />
 
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+        <%services%>
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-<%activity%>
-<%receivers%>
+        <!-- Main activity -->
+<activity
+    android:name="com.embarcadero.firemonkey.FMXNativeActivity"
+    android:exported="true"
+    android:label="%activityLabel%"
+    android:configChanges="orientation|keyboard|keyboardHidden|screenSize|screenLayout|uiMode"
+    android:launchMode="singleTask"
+    android:grantUriPermissions="true">
+
+    <meta-data android:name="android.app.lib_name" android:value="%libNameValue%" />
+
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+
+    <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/*" />
+    </intent-filter>
+</activity>
+        <%activity%>
+        <%receivers%>
+
     </application>
 </manifest>
 <!-- END_INCLUDE(manifest) -->
+
