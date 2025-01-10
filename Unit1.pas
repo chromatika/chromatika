@@ -470,7 +470,11 @@ end;
 
 
 procedure TForm1.ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
+var
+  LocalToken: Integer;
 begin
+  INC(FJobToken);
+  LocalToken := FJobToken;
   TTask.Run(procedure
     begin
       try
@@ -478,6 +482,10 @@ begin
           TaskProc();  // execute the passed procedure on a background thread
         TThread.Queue(nil, procedure
           begin
+            if LocalToken <> FJobToken then
+            begin
+              Exit;
+            end;
             if Assigned(OnCompletion) then
               OnCompletion();  // execute completion on main thread
           end);
@@ -485,6 +493,9 @@ begin
         on E: Exception do
           TThread.Queue(nil, procedure
             begin
+              if LocalToken <> FJobToken then begin
+                Exit;
+              end;
               ShowMessage('Error during background execution: ' + E.Message);
             end);
       end;
@@ -595,6 +606,7 @@ var
   OpenDialog: TOpenDialog;
 {$ENDIF}
 begin
+  INC(FJobToken);
   if Assigned(prChrome) then begin FreeAndNil(prChrome) end;
   if Assigned(prWarm)   then begin FreeAndNil(prWarm)   end;
   if Assigned(prCool)   then begin FreeAndNil(prCool)   end;
@@ -936,6 +948,7 @@ end;
 procedure TForm1.btnSaveClick(Sender: TObject);
 var
   tmp, tmp2: TBitmap;
+  localAngle: Single;
   imgData: TBitmapData;
 begin
   if not Assigned(img) then
@@ -969,6 +982,7 @@ begin
   Image1.Enabled := False;
   tmp := TBitmap.Create;
   tmp.Assign(img);
+  LocalAngle := FRotationAngle mod 360;
   //tmp := MakeRotatedCopy(img, FRotationAngle mod 360);
   {$IFDEF ANDROID}
   MobileService.RequestWritePermission(
@@ -1018,17 +1032,24 @@ begin
           procedure
           begin
             // now do MobileService.save
-            tmp2 := TBitmap.Create;
-            tmp2 := MakeRotatedCopy(tmp, FRotationAngle mod 360);
+            //tmp2 := TBitmap.Create;
+            tmp2 := MakeRotatedCopy(tmp, localAngle);
             MobileService.save(tmp2,
               procedure(const ASaved: Boolean; const AErrorMessage: string)
               begin
                 if ASaved then
-                  ShowMessage('Image saved OK')
-                else
+                begin
+                  //ShowMessage('Image saved OK')
+                  //tmp.Free; //here we have a problem
+                  //tmp2.Free; // cannot figure out how to free them safely
+                end
+              else
+                begin
                   ShowMessage('Failed to save: ' + AErrorMessage);
+                end;
 
-                tmp.Free; // free after saving
+                //tmp.Free; // free after saving
+                //tmp2.Free;
                 // Re-enable UI
                 AniIndicator1.Visible := False;
                 AniIndicator1.Enabled := False;
@@ -1056,7 +1077,7 @@ begin
             else
               ShowMessage('Failed to save: ' + AErrorMessage);
 
-            tmp.Free; // done with the bitmap
+            //tmp.Free; // done with the bitmap
             // re-enable UI
             AniIndicator1.Visible := False;
             AniIndicator1.Enabled := False;
