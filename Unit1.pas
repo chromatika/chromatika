@@ -1443,16 +1443,18 @@ begin
 //  cool.Position.Y := warm.Position.Y + offsetBig;
 //  landscape.Position.Y := cool.Position.Y + offsetBig;
 
-  btnChoose.Width := ScreenWidth / offsetQuart;
+  btnChoose.Width := offsetBig; //ScreenWidth / offsetQuart;
   btnChoose.Height := offsetBig; // Set a fixed height
 //  btnChoose.Position.Y := original.Position.Y; //offsetSmall;
   btnChoose.Position.Y := layOriginal.Position.Y; //offsetSmall;
   btnChoose.Position.X := ScreenWidth - btnChoose.Width - offsetSmall;//original.Position.X + original.Width + offsetBig;   //Image1.Width + offsetBig + offsetTiny;
+  btnChoose.Text := '📂';
 
-  btnSave.Width := ScreenWidth / offsetQuart;
+  btnSave.Width := offsetBig; //ScreenWidth / offsetQuart;
   btnSave.Height := offsetBig; // Same height as Button1
   btnSave.Position.Y := btnChoose.Position.Y + btnChooseHald.Height + offsetBig; // Positioned next to Button1
   btnSave.Position.X := btnChoose.Position.X;
+  btnSave.Text := '💾';
 
   btnRotate.Width := offsetBig;// ScreenWidth / offsetQuart;
   btnRotate.Height := offsetBig; // Same height as Button1
