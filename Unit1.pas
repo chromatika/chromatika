@@ -76,6 +76,10 @@ type
     FInitialHeight: Single;
     FRotationAngle: Integer; // can be 0, 90, 180, 270
     FJobToken: Integer;
+    // to preserve zoom state
+    FCurrentScale: Single;
+    FCurrentOffsetX: Single;
+    FCurrentOffsetY: Single;
   public
     { Public declarations }
   end;
@@ -407,8 +411,8 @@ end;
 
 procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
 var
-  LImageCenter: TPointF;
-  Scale, NewWidth, NewHeight: Single;
+  LayImageCenter, GestureCenter, Offset: TPointF;
+  ScaleFactor, NewWidth, NewHeight: Single;
   NewPosition: TPointF;
 begin
   case EventInfo.GestureID of
@@ -420,54 +424,72 @@ begin
         if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
            not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
         begin
-          LImageCenter := PointF(Image1.Width / 2, Image1.Height / 2);
-          Scale := EventInfo.Distance / FLastDistance;
-          NewWidth := Image1.Width * Scale;
-          NewHeight := Image1.Height * Scale;
+          // Calculate scale factor and new dimensions
+          ScaleFactor := EventInfo.Distance / FLastDistance;
+          NewWidth := Image1.Width * ScaleFactor;
+          NewHeight := Image1.Height * ScaleFactor;
 
-          // Prevent zooming out smaller than the initial size
+          // Prevent zooming out smaller than initial size
           if (NewWidth >= FInitialWidth) and (NewHeight >= FInitialHeight) then
           begin
+            // Get gesture center relative to the IMAGE (not layout)
+            GestureCenter := PointF(
+              (EventInfo.Location.X - Image1.Position.X) / Image1.Width,
+              (EventInfo.Location.Y - Image1.Position.Y) / Image1.Height
+            );
+
+            // Calculate offset to keep the gesture point stable
+            Offset := PointF(
+              GestureCenter.X * (Image1.Width - NewWidth),
+              GestureCenter.Y * (Image1.Height - NewHeight)
+            );
+
+            // Update dimensions and position
             Image1.Width := NewWidth;
             Image1.Height := NewHeight;
-            Image1.Position.X := (Image1.Position.X + LImageCenter.X) - (Image1.Width / 2);
-            Image1.Position.Y := (Image1.Position.Y + LImageCenter.Y) - (Image1.Height / 2);
+            Image1.Position.X := Image1.Position.X + Offset.X;
+            Image1.Position.Y := Image1.Position.Y + Offset.Y;
           end;
 
           FLastDistance := EventInfo.Distance;
         end;
-
         Handled := True;
       end;
+
     igiPan:
       begin
         if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-        begin
           FLastTouch := EventInfo.Location;
-        end;
 
         if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
            not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
         begin
+          // Calculate new position based on pan delta
           NewPosition.X := Image1.Position.X + (EventInfo.Location.X - FLastTouch.X);
           NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
 
-          // Boundary checks
-          if NewPosition.X > 0 then NewPosition.X := 0;
-          if NewPosition.Y > 0 then NewPosition.Y := 0;
-          if NewPosition.X + Image1.Width < layImage.Width then NewPosition.X := layImage.Width - Image1.Width;
-          if NewPosition.Y + Image1.Height < layImage.Height then NewPosition.Y := layImage.Height - Image1.Height;
+          // Boundary checks (keep image within layImage)
+          NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width);
+          NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height);
 
           Image1.Position.X := NewPosition.X;
           Image1.Position.Y := NewPosition.Y;
           FLastTouch := EventInfo.Location;
         end;
+        Handled := True;
+      end;
 
+    igiDoubleTap:
+      begin
+        // Reset to initial state
+        Image1.Width := FInitialWidth;
+        Image1.Height := FInitialHeight;
+        Image1.Position.X := (layImage.Width - FInitialWidth) / 2;
+        Image1.Position.Y := (layImage.Height - FInitialHeight) / 2;
         Handled := True;
       end;
   end;
 end;
-
 
 procedure TForm1.ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
 var
@@ -530,7 +552,7 @@ begin
     Image1.Height := Round(smimg.Height / HighResFactor);
     // center Image1 within layImage
     Image1.Position.X := (layImage.Width - Image1.Width) / 2;
-    Image1.Position.Y := 0;//(layImage.Height - Image1.Height) / 2;
+    Image1.Position.Y := {0;}(layImage.Height - Image1.Height) / 2;
     original.IsChecked := true;
   except
     on E: Exception do
@@ -942,7 +964,7 @@ begin
     Result := RotateBitmapFMX(ASource, AAngle);
 end;
 
-{$IFDEF ANDROID or IOS}
+{$IF Defined(ANDROID) or Defined(IOS)}
 
 
 procedure TForm1.btnSaveClick(Sender: TObject);
@@ -1394,7 +1416,7 @@ begin
   FLastDistance := 0;
 
   Image1.Touch.GestureManager := GestureManager1;
-  Image1.Touch.InteractiveGestures := [TInteractiveGesture.Zoom, TInteractiveGesture.Pan];
+  Image1.Touch.InteractiveGestures := [TInteractiveGesture.Zoom, TInteractiveGesture.Pan, TInteractiveGesture.DoubleTap];
   Image1.OnGesture := Image1Gesture;
   FLastTouch := PointF(0, 0); // Initialize the last touch point
   FInitialWidth := Image1.Width;
@@ -1475,7 +1497,7 @@ begin
   warm.OnChange := RadioButtonChange;
   cool.OnChange := RadioButtonChange;
   landscape.OnChange := RadioButtonChange;
-  //{$IFDEF ANDROID or IOS}
+  //{$IF DEFINED(ANDROID)} or DEFINED(IOS)}
   //MobileService := TMobileService.Create(Self);
   //{$ENDIF}
 
