@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#A24C57" android:pathData="M0,0 H4 V24 H0 Z"/>  <!-- Red -->
+    <path android:fillColor="#685B87" android:pathData="M4,0 H8 V24 H4 Z"/>  <!-- Purple -->
+    <path android:fillColor="#4AA77A" android:pathData="M8,0 H12 V24 H8 Z"/>  <!-- Green -->
+    <path android:fillColor="#EBD524" android:pathData="M12,0 H16 V24 H12 Z"/>  <!-- Yellow -->
+    <path android:fillColor="#E77A3D" android:pathData="M16,0 H20 V24 H16 Z"/>  <!-- Orange -->
+    <path android:fillColor="#B11F38" android:pathData="M20,0 H24 V24 H20 Z"/>  <!-- Dark Red -->
+</vector>
+
