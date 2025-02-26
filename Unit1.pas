@@ -449,6 +449,7 @@ begin
             Image1.Height := NewHeight;
             Image1.Position.X := Image1.Position.X + Offset.X;
             Image1.Position.Y := Image1.Position.Y + Offset.Y;
+            //Image1.Position.Y := (layImage.Height - NewHeight);
           end;
 
           FLastDistance := EventInfo.Distance;
@@ -469,8 +470,10 @@ begin
           NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
 
           // Boundary checks (keep image within layImage)
-          NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width);
-          NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height);
+          //NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width);
+          //NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height);
+          NewPosition.X := Max(Min(NewPosition.X, layImage.Width - Image1.Width), 0);
+          NewPosition.Y := Max(Min(NewPosition.Y, layImage.Height - Image1.Height), 0);
 
           Image1.Position.X := NewPosition.X;
           Image1.Position.Y := NewPosition.Y;
@@ -486,6 +489,8 @@ begin
         Image1.Height := FInitialHeight;
         Image1.Position.X := (layImage.Width - FInitialWidth) / 2;
         Image1.Position.Y := (layImage.Height - FInitialHeight) / 2;
+        //Image1.Position.Y := (layImage.Height - FInitialHeight);
+        //Image1.Position.Y := (layImage.Height - Image1.Height);
         Handled := True;
       end;
   end;
@@ -552,7 +557,8 @@ begin
     Image1.Height := Round(smimg.Height / HighResFactor);
     // center Image1 within layImage
     Image1.Position.X := (layImage.Width - Image1.Width) / 2;
-    Image1.Position.Y := {0;}(layImage.Height - Image1.Height) / 2;
+    //Image1.Position.Y := 0;
+    Image1.Position.Y := (layImage.Height - Image1.Height) /2;
     original.IsChecked := true;
   except
     on E: Exception do
@@ -1509,6 +1515,8 @@ begin
   try
     img.LoadFromStream(ResourceStream);
     scaleAndShow;
+    FInitialWidth := Image1.Width;
+    FInitialHeight := Image1.Height;
     //Image1.Bitmap.Assign(color_checker);
   finally
     ResourceStream.Free;
