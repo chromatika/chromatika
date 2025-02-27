@@ -439,10 +439,15 @@ begin
             );
 
             // Calculate offset to keep the gesture point stable
-            Offset := PointF(
-              GestureCenter.X * (Image1.Width - NewWidth),
-              GestureCenter.Y * (Image1.Height - NewHeight)
-            );
+            //Offset := PointF(
+            //  GestureCenter.X * (Image1.Width - NewWidth),
+            //  GestureCenter.Y * (Image1.Height - NewHeight)
+            //);
+            // Adjust offset to keep zoom focus on pinch point
+           Offset := PointF(
+             (GestureCenter.X * NewWidth) - (GestureCenter.X * Image1.Width),
+             (GestureCenter.Y * NewHeight) - (GestureCenter.Y * Image1.Height)
+           );
 
             // Update dimensions and position
             Image1.Width := NewWidth;
@@ -472,8 +477,17 @@ begin
           // Boundary checks (keep image within layImage)
           //NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width);
           //NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height);
-          NewPosition.X := Max(Min(NewPosition.X, layImage.Width - Image1.Width), 0);
-          NewPosition.Y := Max(Min(NewPosition.Y, layImage.Height - Image1.Height), 0);
+          //NewPosition.X := Max(Min(NewPosition.X, layImage.Width - Image1.Width), 0);
+          //NewPosition.Y := Max(Min(NewPosition.Y, layImage.Height - Image1.Height), 0);
+          if Image1.Width > layImage.Width then
+            NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width)
+          else
+            NewPosition.X := (layImage.Width - Image1.Width) / 2;
+
+          if Image1.Height > layImage.Height then
+            NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height)
+          else
+            NewPosition.Y := (layImage.Height - Image1.Height) / 2;
 
           Image1.Position.X := NewPosition.X;
           Image1.Position.Y := NewPosition.Y;
