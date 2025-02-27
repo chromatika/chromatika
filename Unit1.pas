@@ -410,101 +410,63 @@ end;
 }
 
 procedure TForm1.Image1Gesture(Sender: TObject; const EventInfo: TGestureEventInfo; var Handled: Boolean);
-var
-  LayImageCenter, GestureCenter, Offset: TPointF;
-  ScaleFactor, NewWidth, NewHeight: Single;
-  NewPosition: TPointF;
 begin
   case EventInfo.GestureID of
     igiZoom:
       begin
         if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-          FLastDistance := EventInfo.Distance;
-
-        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
-           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
+          FLastDistance := EventInfo.Distance
+        else if not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
         begin
-          // Calculate scale factor and new dimensions
-          ScaleFactor := EventInfo.Distance / FLastDistance;
-          NewWidth := Image1.Width * ScaleFactor;
-          NewHeight := Image1.Height * ScaleFactor;
-
-          // Prevent zooming out smaller than initial size
+          // Calculate scale factor
+          var ScaleFactor := EventInfo.Distance / FLastDistance;
+          var NewWidth  := Image1.Width * ScaleFactor;
+          var NewHeight := Image1.Height * ScaleFactor;
+          // Enforce minimum zoom (can’t go smaller than initial)
           if (NewWidth >= FInitialWidth) and (NewHeight >= FInitialHeight) then
           begin
-            // Get gesture center relative to the IMAGE (not layout)
-            GestureCenter := PointF(
-              (EventInfo.Location.X - Image1.Position.X) / Image1.Width,
-              (EventInfo.Location.Y - Image1.Position.Y) / Image1.Height
-            );
-
-            // Calculate offset to keep the gesture point stable
-            //Offset := PointF(
-            //  GestureCenter.X * (Image1.Width - NewWidth),
-            //  GestureCenter.Y * (Image1.Height - NewHeight)
-            //);
-            // Adjust offset to keep zoom focus on pinch point
-           Offset := PointF(
-             (GestureCenter.X * NewWidth) - (GestureCenter.X * Image1.Width),
-             (GestureCenter.Y * NewHeight) - (GestureCenter.Y * Image1.Height)
-           );
-
-            // Update dimensions and position
-            Image1.Width := NewWidth;
+            // Pivot around pinch center
+            var gestureX := (EventInfo.Location.X - Image1.Position.X) / Image1.Width;
+            var gestureY := (EventInfo.Location.Y - Image1.Position.Y) / Image1.Height;
+            var offsetX  := gestureX * (Image1.Width - NewWidth);
+            var offsetY  := gestureY * (Image1.Height - NewHeight);
+            // Apply new size and position
+            Image1.Width  := NewWidth;
             Image1.Height := NewHeight;
-            Image1.Position.X := Image1.Position.X + Offset.X;
-            Image1.Position.Y := Image1.Position.Y + Offset.Y;
-            //Image1.Position.Y := (layImage.Height - NewHeight);
+            Image1.Position.X := Image1.Position.X + offsetX;
+            Image1.Position.Y := Image1.Position.Y + offsetY;
           end;
-
           FLastDistance := EventInfo.Distance;
         end;
         Handled := True;
       end;
-
     igiPan:
       begin
         if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
-          FLastTouch := EventInfo.Location;
-
-        if not (TInteractiveGestureFlag.gfBegin in EventInfo.Flags) and
-           not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
+          FLastTouch := EventInfo.Location
+        else if not (TInteractiveGestureFlag.gfEnd in EventInfo.Flags) then
         begin
-          // Calculate new position based on pan delta
-          NewPosition.X := Image1.Position.X + (EventInfo.Location.X - FLastTouch.X);
-          NewPosition.Y := Image1.Position.Y + (EventInfo.Location.Y - FLastTouch.Y);
-
-          // Boundary checks (keep image within layImage)
-          //NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width);
-          //NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height);
-          //NewPosition.X := Max(Min(NewPosition.X, layImage.Width - Image1.Width), 0);
-          //NewPosition.Y := Max(Min(NewPosition.Y, layImage.Height - Image1.Height), 0);
-          if Image1.Width > layImage.Width then
-            NewPosition.X := Max(Min(NewPosition.X, 0), layImage.Width - Image1.Width)
-          else
-            NewPosition.X := (layImage.Width - Image1.Width) / 2;
-
-          if Image1.Height > layImage.Height then
-            NewPosition.Y := Max(Min(NewPosition.Y, 0), layImage.Height - Image1.Height)
-          else
-            NewPosition.Y := (layImage.Height - Image1.Height) / 2;
-
-          Image1.Position.X := NewPosition.X;
-          Image1.Position.Y := NewPosition.Y;
+          // Calculate delta
+          var dx := EventInfo.Location.X - FLastTouch.X;
+          var dy := EventInfo.Location.Y - FLastTouch.Y;
+          var NewPosX := Image1.Position.X + dx;
+          var NewPosY := Image1.Position.Y + dy;
+          // Clamp within bounds
+          NewPosX := Max(layImage.Width - Image1.Width, Min(NewPosX, 0));
+          NewPosY := Max(layImage.Height - Image1.Height, Min(NewPosY, 0));
+          Image1.Position.X := NewPosX;
+          Image1.Position.Y := NewPosY;
           FLastTouch := EventInfo.Location;
         end;
         Handled := True;
       end;
-
     igiDoubleTap:
       begin
-        // Reset to initial state
-        Image1.Width := FInitialWidth;
+        // Reset zoom to base (initial size)
+        Image1.Width  := FInitialWidth;
         Image1.Height := FInitialHeight;
         Image1.Position.X := (layImage.Width - FInitialWidth) / 2;
         Image1.Position.Y := (layImage.Height - FInitialHeight) / 2;
-        //Image1.Position.Y := (layImage.Height - FInitialHeight);
-        //Image1.Position.Y := (layImage.Height - Image1.Height);
         Handled := True;
       end;
   end;
@@ -750,7 +712,9 @@ begin
       Image1.Height := Preview.Height;
       Image1.Position.X := (layImage.Width  - Image1.Width)  / 2;
       Image1.Position.Y := (layImage.Height - Image1.Height) / 2;
-
+      // Update the base scale to this new preview size
+      FInitialWidth  := Image1.Width;
+      FInitialHeight := Image1.Height;
     finally
       Preview.Free;
     end;
