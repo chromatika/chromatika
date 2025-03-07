@@ -434,7 +434,13 @@ begin
             Image1.Width  := NewWidth;
             Image1.Height := NewHeight;
             Image1.Position.X := Image1.Position.X + offsetX;
-            Image1.Position.Y := Image1.Position.Y + offsetY;
+            //Image1.Position.Y := Image1.Position.Y + offsetY;
+            if NewHeight <= layImage.Height then
+              Image1.Position.Y := (layImage.Height - NewHeight) / 2  // center vertically
+            else
+              Image1.Position.Y := Image1.Position.Y + offsetY;      // anchor gesture point (as before)
+
+
           end;
           FLastDistance := EventInfo.Distance;
         end;
