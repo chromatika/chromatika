@@ -55,6 +55,7 @@ type
     procedure btnRotateClick(Sender: TObject);
     procedure ReGenerateDisplay;
     procedure DisplayPreview(const ASource: TBitmap);
+    procedure ClampImagePosition;
   private
     { Private declarations }
     LUTChrome: TBitmap;
@@ -420,32 +421,44 @@ begin
         begin
           // Calculate scale factor
           var ScaleFactor := EventInfo.Distance / FLastDistance;
-          var NewWidth  := Image1.Width * ScaleFactor;
+          var NewWidth := Image1.Width * ScaleFactor;
           var NewHeight := Image1.Height * ScaleFactor;
-          // Enforce minimum zoom (can’t go smaller than initial)
-          if (NewWidth >= FInitialWidth) and (NewHeight >= FInitialHeight) then
+
+          // Calculate min scale (so image is at least as large as initial size)
+          var MinScale := 1.0;
+          // Calculate max scale (limit zoom to reasonable amount)
+          var MaxScale := 5.0;
+
+          // Compute new effective scale
+          var NewScale := FCurrentScale * ScaleFactor;
+
+          // Limit scale to min/max range
+          if (NewScale >= MinScale) and (NewScale <= MaxScale) then
           begin
             // Pivot around pinch center
             var gestureX := (EventInfo.Location.X - Image1.Position.X) / Image1.Width;
             var gestureY := (EventInfo.Location.Y - Image1.Position.Y) / Image1.Height;
-            var offsetX  := gestureX * (Image1.Width - NewWidth);
-            var offsetY  := gestureY * (Image1.Height - NewHeight);
+            var offsetX := gestureX * (Image1.Width - NewWidth);
+            var offsetY := gestureY * (Image1.Height - NewHeight);
+
             // Apply new size and position
-            Image1.Width  := NewWidth;
+            Image1.Width := NewWidth;
             Image1.Height := NewHeight;
             Image1.Position.X := Image1.Position.X + offsetX;
-            //Image1.Position.Y := Image1.Position.Y + offsetY;
-            if NewHeight <= layImage.Height then
-              Image1.Position.Y := (layImage.Height - NewHeight) / 2  // center vertically
-            else
-              Image1.Position.Y := Image1.Position.Y + offsetY;      // anchor gesture point (as before)
+            Image1.Position.Y := Image1.Position.Y + offsetY;
 
+            // Store current scale for state preservation
+            FCurrentScale := NewScale;
 
+            // Make sure we're still in bounds
+            ClampImagePosition;
           end;
+
           FLastDistance := EventInfo.Distance;
         end;
         Handled := True;
       end;
+
     igiPan:
       begin
         if TInteractiveGestureFlag.gfBegin in EventInfo.Flags then
@@ -455,24 +468,32 @@ begin
           // Calculate delta
           var dx := EventInfo.Location.X - FLastTouch.X;
           var dy := EventInfo.Location.Y - FLastTouch.Y;
-          var NewPosX := Image1.Position.X + dx;
-          var NewPosY := Image1.Position.Y + dy;
-          // Clamp within bounds
-          NewPosX := Max(layImage.Width - Image1.Width, Min(NewPosX, 0));
-          NewPosY := Max(layImage.Height - Image1.Height, Min(NewPosY, 0));
-          Image1.Position.X := NewPosX;
-          Image1.Position.Y := NewPosY;
+
+          // Apply movement
+          Image1.Position.X := Image1.Position.X + dx;
+          Image1.Position.Y := Image1.Position.Y + dy;
+
+          // Ensure we stay in bounds
+          ClampImagePosition;
+
           FLastTouch := EventInfo.Location;
         end;
         Handled := True;
       end;
+
     igiDoubleTap:
       begin
         // Reset zoom to base (initial size)
-        Image1.Width  := FInitialWidth;
+        FCurrentScale := 1.0;
+        Image1.Width := FInitialWidth;
         Image1.Height := FInitialHeight;
         Image1.Position.X := (layImage.Width - FInitialWidth) / 2;
         Image1.Position.Y := (layImage.Height - FInitialHeight) / 2;
+
+        // Reset offsets
+        FCurrentOffsetX := Image1.Position.X;
+        FCurrentOffsetY := Image1.Position.Y;
+
         Handled := True;
       end;
   end;
@@ -546,6 +567,10 @@ begin
     on E: Exception do
       ShowMessage('Error during image scaling: ' + E.Message);
   end;
+
+FCurrentScale := 1.0;  // Reset scale to base
+FCurrentOffsetX := 0;
+FCurrentOffsetY := 0;
 end;
 
 {
@@ -589,21 +614,26 @@ end;
 }
 procedure TForm1.setimage(bmp: TBitmap);
 begin
-  //ShowMessage(Format('setimage called. bmp size: %dx%d', [bmp.Width, bmp.Height]));
   if Assigned(bmp) then
   begin
     if Assigned(img) then FreeAndNil(img);
     img := TBitmap.Create;
     img.Assign(bmp);
-    // calculate the preview sizes based on the maximum allowable dimensions
+
+    // Calculate the preview sizes based on the maximum allowable dimensions
     MaxPreviewWidth := Min(ScreenWidth * 2, img.Width);
     MaxPreviewHeight := Min(ScreenHeight * 2, img.Height);
-    // reset zoom and pan settings
+
+    // Reset zoom and pan settings
     FLastTouch := PointF(0, 0);
     FLastDistance := 0;
-    // apply scaling and display the image
+    FCurrentScale := 1.0;
+    FCurrentOffsetX := 0;
+    FCurrentOffsetY := 0;
+
+    // Apply scaling and display the image
     scaleAndShow;
-     //ShowMessage(Format('scaleAndShow done. Image1 size: %dx%d', [Round(Image1.Width), Round(Image1.Height)]));
+
     FInitialWidth := Image1.Width;
     FInitialHeight := Image1.Height;
   end;
@@ -677,10 +707,10 @@ end;
 procedure TForm1.DisplayPreview(const ASource: TBitmap);
 var
   RotatedCopy, Preview: TBitmap;
-  ScaleWidth, ScaleHeight, ScaleFactor: Single;
+  ScaleWidth, ScaleHeight, BaseFactor: Single;
+  FinalWidth, FinalHeight: Single;
 begin
   if not Assigned(ASource) then Exit;
-
   // 1) Rotate a copy if needed
   RotatedCopy := TBitmap.Create;
   try
@@ -693,11 +723,17 @@ begin
     try
       ScaleWidth := layImage.Width / RotatedCopy.Width;
       ScaleHeight := layImage.Height / RotatedCopy.Height;
-      ScaleFactor := Min(ScaleWidth, ScaleHeight);
+      BaseFactor := Min(ScaleWidth, ScaleHeight);
 
+      // Calculate dimensions, factoring in current zoom if any
+      if FCurrentScale <= 0 then FCurrentScale := 1.0;
+      FinalWidth := Round(RotatedCopy.Width * BaseFactor * FCurrentScale);
+      FinalHeight := Round(RotatedCopy.Height * BaseFactor * FCurrentScale);
+
+      // Create base-resolution preview
       Preview.SetSize(
-        Round(RotatedCopy.Width  * ScaleFactor),
-        Round(RotatedCopy.Height * ScaleFactor)
+        Round(RotatedCopy.Width * BaseFactor),
+        Round(RotatedCopy.Height * BaseFactor)
       );
 
       Preview.Canvas.BeginScene;
@@ -714,22 +750,60 @@ begin
 
       // 3) Show in Image1
       Image1.Bitmap.Assign(Preview);
-      Image1.Width  := Preview.Width;
-      Image1.Height := Preview.Height;
-      Image1.Position.X := (layImage.Width  - Image1.Width)  / 2;
-      Image1.Position.Y := (layImage.Height - Image1.Height) / 2;
-      // Update the base scale to this new preview size
-      FInitialWidth  := Image1.Width;
-      FInitialHeight := Image1.Height;
+
+      // Apply current zoom
+      Image1.Width := FinalWidth;
+      Image1.Height := FinalHeight;
+
+      // Apply current offsets or center if none
+      if (FCurrentOffsetX <> 0) or (FCurrentOffsetY <> 0) then
+      begin
+        // Apply stored offsets, but clamp within bounds
+        Image1.Position.X := FCurrentOffsetX;
+        Image1.Position.Y := FCurrentOffsetY;
+        // Clamp position to valid range
+        ClampImagePosition;
+      end
+      else
+      begin
+        // Center the image
+        Image1.Position.X := (layImage.Width - Image1.Width) / 2;
+        Image1.Position.Y := (layImage.Height - Image1.Height) / 2;
+      end;
+
+      // Update initial dimensions for future zoom operations
+      FInitialWidth := Preview.Width;  // Use unzoomed dimensions
+      FInitialHeight := Preview.Height;
     finally
       Preview.Free;
     end;
-
   finally
     RotatedCopy.Free;
   end;
 end;
 
+// Add this helper method to clamp image position
+procedure TForm1.ClampImagePosition;
+begin
+  // Ensure image doesn't leave empty space
+  if Image1.Width > layImage.Width then
+    // Image wider than container - clamp X position
+    Image1.Position.X := Max(layImage.Width - Image1.Width, Min(Image1.Position.X, 0))
+  else
+    // Image narrower than container - center horizontally
+    Image1.Position.X := (layImage.Width - Image1.Width) / 2;
+
+  if Image1.Height > layImage.Height then
+    // Image taller than container - clamp Y position
+    Image1.Position.Y := Max(layImage.Height - Image1.Height, Min(Image1.Position.Y, 0))
+  else
+    // Image shorter than container - center vertically
+    Image1.Position.Y := (layImage.Height - Image1.Height) / 2;
+
+  // Store current position for state preservation
+  FCurrentOffsetX := Image1.Position.X;
+  FCurrentOffsetY := Image1.Position.Y;
+end;
 
 procedure TForm1.btnRotateClick(Sender: TObject);
 var
