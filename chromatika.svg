@@ -1,0 +1,8 @@
+<svg viewBox="0 0 6 6" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1" height="6" x="0" fill="#A24C57"/>  <!-- Red -->
+    <rect width="1" height="6" x="1" fill="#685B87"/>  <!-- Purple -->
+    <rect width="1" height="6" x="2" fill="#4AA77A"/>  <!-- Green -->
+    <rect width="1" height="6" x="3" fill="#EBD524"/>  <!-- Yellow -->
+    <rect width="1" height="6" x="4" fill="#E77A3D"/>  <!-- Orange -->
+    <rect width="1" height="6" x="5" fill="#B11F38"/>  <!-- Dark Red -->
+</svg>

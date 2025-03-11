@@ -114,15 +114,6 @@
             <Overwrite>True</Overwrite>
             <Required>True</Required>
         </DeployFile>
-        <DeployFile Include="Android64\Debug\styles-v31.xml" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>chromatika\res\values-v31\</RemoteDir>
-            <RemoteName>styles.xml</RemoteName>
-            <DeployClass>AndroidSplashStylesV31</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="hald\warm.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>chromatika\assets\internal\</RemoteDir>
             <RemoteName>warm.png</RemoteName>
@@ -303,15 +294,6 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="icons\splash_fg.xml" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>chromatika\res\drawable-night-anydpi-v31\</RemoteDir>
-            <RemoteName>splash_vector.xml</RemoteName>
-            <DeployClass>Android_VectorizedSplashV31Dark</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_SplashImage_470x320.png" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\res\drawable-normal\</RemoteDir>
             <RemoteName>splash_image.png</RemoteName>
@@ -429,15 +411,6 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="chromatika_logo.xml" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>chromatika\res\drawable-anydpi-v24\</RemoteDir>
-            <RemoteName>ic_notification.xml</RemoteName>
-            <DeployClass>Android_VectorizedNotificationIcon</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="icons\chromatika_96x96.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>chromatika\res\drawable-xxxhdpi\</RemoteDir>
             <RemoteName>ic_notification.png</RemoteName>
@@ -451,15 +424,6 @@
             <RemoteDir>chromatika\res\drawable-xxxhdpi\</RemoteDir>
             <RemoteName>ic_notification.png</RemoteName>
             <DeployClass>Android_NotificationIcon96</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
-        <DeployFile Include="Android64\Debug\splash_image_def-v21.xml" Condition="'$(Config)'=='Debug'">
-            <RemoteDir>chromatika\res\drawable-anydpi-v21\</RemoteDir>
-            <RemoteName>splash_image_def.xml</RemoteName>
-            <DeployClass>AndroidSplashImageDefV21</DeployClass>
             <Operation>1</Operation>
             <LocalCommand/>
             <RemoteCommand/>
@@ -774,7 +738,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\lib\android\debug\mips\libnative-activity.so" Condition="'$(Config)'=='Release'">
+        <DeployFile Include="$(BDS)\lib\android\release\mips\libnative-activity.so" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\library\lib\mips\</RemoteDir>
             <RemoteName>libchromatika.so</RemoteName>
             <DeployClass>AndroidLibnativeMipsFile</DeployClass>
@@ -955,7 +919,7 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\lib\android\debug\armeabi\libnative-activity.so" Condition="'$(Config)'=='Release'">
+        <DeployFile Include="$(BDS)\lib\android\release\armeabi\libnative-activity.so" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\library\lib\armeabi\</RemoteDir>
             <RemoteName>libchromatika.so</RemoteName>
             <DeployClass>AndroidLibnativeArmeabiFile</DeployClass>

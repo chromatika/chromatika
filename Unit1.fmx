@@ -9,7 +9,7 @@ object Form1: TForm1
   FormFactor.Devices = [Desktop]
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  DesignerMasterStyle = 0
+  DesignerMasterStyle = 3
   object btnchooseHald: TButton
     Position.X = 352.000000000000000000
     Position.Y = 32.000000000000000000

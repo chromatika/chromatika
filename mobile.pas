@@ -178,6 +178,10 @@ begin
       PERMISSION_READ_MEDIA_VIDEO,
       PERMISSION_READ_MEDIA_AUDIO
     ];
+    {Permissions := [
+      PERMISSION_READ_MEDIA_IMAGES,
+      PERMISSION_READ_MEDIA_VIDEO
+    ]; }
   end
   else
   begin
