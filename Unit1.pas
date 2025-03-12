@@ -18,6 +18,9 @@ uses
   System.IOUtils,         // For file path utilities
   JavaInputStreamHelper,
 {$ENDIF}
+{$IFDEF IOS}
+  iOSapi.Foundation, iOSapi.Helpers, FMX.Helpers.iOS,
+{$ENDIF}
    mobile, System.Notification; //for TNotification;
 
 type
@@ -36,7 +39,9 @@ type
     NotificationCenter1: TNotificationCenter;
     GestureManager1: TGestureManager;
     btnRotate: TButton;
+    {$IFDEF ANDROID}
     procedure LoadSharedImage(SharedUri: Jnet_Uri);
+    {$ENDIF}
     function GetCurrentLUT: TBitmap;
     procedure ExecuteInBackground(TaskProc: TProc; OnCompletion: TProc);
     procedure DisableRadioButtons(Disable: Boolean);
@@ -678,6 +683,7 @@ begin
   end;
 
  {$ENDIF}
+
 end;
 
 function TForm1.GetCurrentLUT: TBitmap;
@@ -857,6 +863,7 @@ begin
   AniIndicator1.Enabled := False;
   DisableRadioButtons(False);
   btnSave.Visible := True;
+  btnChoose.Enabled := True
 end;
 {
  procedure TForm1.UpdateUI(Bitmap: TBitmap);
@@ -922,6 +929,16 @@ begin
   // Show busy indicator only if we actually do a LUT task
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
+  AniIndicator1.Position.Y := original.Position.Y;
+
+  btnSave.Enabled := False;
+  btnChoose.Enabled := False;
+  original.Enabled := False;
+  chrome.Enabled := False;
+  warm.Enabled := False;
+  cool.Enabled := False;
+  landscape.Enabled := False;
+
   DisableRadioButtons(True);
 
   SelectedLUT := GetCurrentLUT; // e.g. LUTChrome, etc.
@@ -953,7 +970,7 @@ begin
     // ===============
     // LUT SELECTED
     // ===============
-    btnSave.Visible := True;
+    //btnSave.Visible := True;
 
     // If we don't already have a processed preview for the chosen LUT
     if not Assigned(ProcessedBitmap) then
@@ -988,6 +1005,14 @@ begin
 
               // show rotate preview
               ReGenerateDisplay;
+                  btnSave.Enabled := True;
+                  btnChoose.Enabled := True;
+                  original.Enabled := True;
+                  chrome.Enabled := True;
+                  warm.Enabled := True;
+                  cool.Enabled := True;
+                  landscape.Enabled := True;
+
             end);
 
           except
@@ -1013,6 +1038,13 @@ begin
       // We already have a processed LUT
       UpdateUI(ProcessedBitmap);
       ReGenerateDisplay;
+                  btnSave.Enabled := True;
+                  btnChoose.Enabled := True;
+                  original.Enabled := True;
+                  chrome.Enabled := True;
+                  warm.Enabled := True;
+                  cool.Enabled := True;
+                  landscape.Enabled := True;
     end;
   end;
 end;
@@ -1058,6 +1090,7 @@ begin
   // 2) Show busy indicator + disable UI
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
+  AniIndicator1.Position.Y := original.Position.Y;
   btnSave.Enabled := False;
   btnChoose.Enabled := False;
   original.Enabled := False;
@@ -1221,6 +1254,7 @@ begin
   tmp.Assign(img);
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
+  AniIndicator1.Position.Y := original.Position.Y;
             // Perform saving in a synchronized block
             TThread.Synchronize(nil, procedure
               begin
@@ -1317,6 +1351,7 @@ end;
 }
 
 
+{$IFDEF ANDROID}
 procedure TForm1.LoadSharedImage(SharedUri: Jnet_Uri);
 var
   InputStream: JInputStream;
@@ -1386,7 +1421,7 @@ begin
     MemoryStream.Free;
   end;
 end;
-
+{$ENDIF}
 
 procedure TForm1.ReGenerateDisplay;
 var
@@ -1449,13 +1484,16 @@ begin
 //  ScreenHeight := Screen.Size.Height;
   AniIndicator1.Visible := false;
   AniIndicator1.Enabled := false;
-  AniIndicator1.Align := TAlignLayout.Center;
+  //AniIndicator1.Align := TAlignLayout.Center;
   StyleObj := AniIndicator1.FindStyleResource('indicator');
   if Assigned(StyleObj) and (StyleObj is TShape) then
   begin
     TShape(StyleObj).Fill.Color := TAlphaColors.Blue;
   end;
   AniIndicator1.Width := ScreenWidth / 2;
+  AniIndicator1.Position.X := ScreenWidth / 2;
+  AniIndicator1.Position.Y := ScreenHeight / 2;
+  //AniIndicator1.Height := ScreenHeight / 2 ;
 
 {  Image1.Width := ScreenWidth - offsetHalf;
   Image1.Height := ScreenHeight / 2; //ScreenHeight / offsetHalf;

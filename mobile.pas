@@ -11,9 +11,11 @@ uses
   System.UITypes,
   FMX.ActnList,
   FMX.MediaLibrary.Actions,
+  {$IFDEF Android}
   Androidapi.Helpers,
   Androidapi.JNI.Os,
   Androidapi.JNI.JavaTypes,  // Needed for JStringToString
+  {$ENDIF}
   FMX.DialogService;         // Needed for TDialogService.ShowMessage
 
 type
@@ -199,6 +201,7 @@ procedure TMobileService.RequestReadPermission(Callback: TPermissionRequestResul
 var
   Permissions: TArray<string>;
 begin
+{$IFDEF ANDROID}
   FPermissionCallback := Callback;
 
   if TOSVersion.Check(13) then
@@ -220,6 +223,7 @@ begin
     PermissionRequestResult,   // your same callback
     DisplayRationale          // your same rationale routine
   );
+{$ENDIF}
 end;
 
 procedure TMobileService.choose(Callback: TImageProcessedCallback);

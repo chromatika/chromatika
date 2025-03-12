@@ -738,15 +738,6 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\lib\android\release\mips\libnative-activity.so" Condition="'$(Config)'=='Release'">
-            <RemoteDir>chromatika\library\lib\mips\</RemoteDir>
-            <RemoteName>libchromatika.so</RemoteName>
-            <DeployClass>AndroidLibnativeMipsFile</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="$(BDS)\bin\Artwork\Android\FM_SplashImage_426x320.png" Condition="'$(Config)'=='Debug'">
             <RemoteDir>chromatika\res\drawable-small\</RemoteDir>
             <RemoteName>splash_image.png</RemoteName>
@@ -919,15 +910,6 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
-        <DeployFile Include="$(BDS)\lib\android\release\armeabi\libnative-activity.so" Condition="'$(Config)'=='Release'">
-            <RemoteDir>chromatika\library\lib\armeabi\</RemoteDir>
-            <RemoteName>libchromatika.so</RemoteName>
-            <DeployClass>AndroidLibnativeArmeabiFile</DeployClass>
-            <Operation>1</Operation>
-            <LocalCommand/>
-            <RemoteCommand/>
-            <Overwrite>True</Overwrite>
-        </DeployFile>
         <DeployFile Include="Android\Release\colors-night-v21.xml" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\res\values-night-v21\</RemoteDir>
             <RemoteName>colors.xml</RemoteName>
@@ -1010,6 +992,15 @@
             <RemoteCommand/>
             <Overwrite>True</Overwrite>
         </DeployFile>
+        <DeployFile Include="$(BDS)\lib\android\release\armeabi\libnative-activity.so" Condition="'$(Config)'=='Release'">
+            <RemoteDir>chromatika\library\lib\armeabi\</RemoteDir>
+            <RemoteName>libchromatika.so</RemoteName>
+            <DeployClass>AndroidLibnativeArmeabiFile</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
         <DeployFile Include="Android\Release\chromatika.classes" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\classes\</RemoteDir>
             <RemoteName>chromatika.classes</RemoteName>
@@ -1056,6 +1047,15 @@
             <Overwrite>True</Overwrite>
         </DeployFile>
         <DeployFile Include="$(BDS)\lib\android\release\mips\libnative-activity.so" Condition="'$(Config)'=='Debug'">
+            <RemoteDir>chromatika\library\lib\mips\</RemoteDir>
+            <RemoteName>libchromatika.so</RemoteName>
+            <DeployClass>AndroidLibnativeMipsFile</DeployClass>
+            <Operation>1</Operation>
+            <LocalCommand/>
+            <RemoteCommand/>
+            <Overwrite>True</Overwrite>
+        </DeployFile>
+        <DeployFile Include="$(BDS)\lib\android\release\mips\libnative-activity.so" Condition="'$(Config)'=='Release'">
             <RemoteDir>chromatika\library\lib\mips\</RemoteDir>
             <RemoteName>libchromatika.so</RemoteName>
             <DeployClass>AndroidLibnativeMipsFile</DeployClass>
