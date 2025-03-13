@@ -61,6 +61,7 @@ type
     procedure ReGenerateDisplay;
     procedure DisplayPreview(const ASource: TBitmap);
     procedure ClampImagePosition;
+    procedure setAniIndicatorPosition;
   private
     { Private declarations }
     LUTChrome: TBitmap;
@@ -929,7 +930,8 @@ begin
   // Show busy indicator only if we actually do a LUT task
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
-  AniIndicator1.Position.Y := original.Position.Y;
+
+  setAniIndicatorPosition;
 
   btnSave.Enabled := False;
   btnChoose.Enabled := False;
@@ -1090,7 +1092,9 @@ begin
   // 2) Show busy indicator + disable UI
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
-  AniIndicator1.Position.Y := original.Position.Y;
+
+  setAniIndicatorPosition;
+
   btnSave.Enabled := False;
   btnChoose.Enabled := False;
   original.Enabled := False;
@@ -1254,7 +1258,9 @@ begin
   tmp.Assign(img);
   AniIndicator1.Visible := True;
   AniIndicator1.Enabled := True;
-  AniIndicator1.Position.Y := original.Position.Y;
+
+  setAniIndicatorPosition;
+
             // Perform saving in a synchronized block
             TThread.Synchronize(nil, procedure
               begin
@@ -1482,18 +1488,6 @@ begin
 
 //  ScreenWidth := Screen.Size.Width;
 //  ScreenHeight := Screen.Size.Height;
-  AniIndicator1.Visible := false;
-  AniIndicator1.Enabled := false;
-  //AniIndicator1.Align := TAlignLayout.Center;
-  StyleObj := AniIndicator1.FindStyleResource('indicator');
-  if Assigned(StyleObj) and (StyleObj is TShape) then
-  begin
-    TShape(StyleObj).Fill.Color := TAlphaColors.Blue;
-  end;
-  AniIndicator1.Width := ScreenWidth / 2;
-  AniIndicator1.Position.X := ScreenWidth / 2;
-  AniIndicator1.Position.Y := ScreenHeight / 2;
-  //AniIndicator1.Height := ScreenHeight / 2 ;
 
 {  Image1.Width := ScreenWidth - offsetHalf;
   Image1.Height := ScreenHeight / 2; //ScreenHeight / offsetHalf;
@@ -1697,7 +1691,40 @@ begin
   end;
 end;
 {$ENDIF}
+  AniIndicator1.Visible := false;
+  AniIndicator1.Enabled := false;
+  AniIndicator1.Align := TAlignLayout.None;
+  AniIndicator1.Anchors := [];
+  StyleObj := AniIndicator1.FindStyleResource('indicator');
+  if Assigned(StyleObj) and (StyleObj is TShape) then
+  begin
+    TShape(StyleObj).Fill.Color := TAlphaColors.Blue;
+  end;
+  AniIndicator1.Width := ScreenWidth / 2;
+  //AniIndicator1.Position.X := original.Position.X + original.Width + offsetBig;
+  //AniIndicator1.Position.Y := original.Position.Y;
+  //AniIndicator1.Height := ScreenHeight / 2 ;
 
+setAniIndicatorPosition;
+end;
+
+
+procedure TForm1.setAniIndicatorPosition;
+var
+  ptOriginal, ptBtnChoose: TPointF;
+  yPos, xPos: Single;
+begin
+  // get the absolute Y position
+  ptOriginal := original.LocalToAbsolute(PointF(0,0));
+  ptBtnChoose := btnChoose.LocalToAbsolute(PointF(0,0));
+
+
+  yPos := ptOriginal.Y;
+
+  // X position centered relative to the form's client width
+  xPos := (Self.ClientWidth - AniIndicator1.Width) / 2;
+
+  AniIndicator1.Position.Point := PointF(xPos, yPos);
 end;
 
 procedure TForm1.FormDestroy(Sender: TObject);
