@@ -10,13 +10,15 @@ uses
   System.Threading, // for TProc
   FMX.Gestures,    // for TGestureManager
 {$IFDEF ANDROID}
- Androidapi.JNI.GraphicsContentViewText, Androidapi.Helpers, FMX.Helpers.Android, Androidapi.JNI.Net, //for sharing from gallery
+ Androidapi.JNI.GraphicsContentViewText,
+ Androidapi.Helpers, FMX.Helpers.Android, Androidapi.JNI.Net, //for sharing from gallery
   Androidapi.JNI.JavaTypes, // For JInputStream and similar
   Androidapi.JNIBridge, // For IJavaObject
   Androidapi.JNI.Provider, // Required for ContentResolver
   FMX.Surfaces,            // For TBitmapSurface
   System.IOUtils,         // For file path utilities
   JavaInputStreamHelper,
+  Androidapi.JNI.Media,
 {$ENDIF}
 {$IFDEF IOS}
   iOSapi.Foundation, iOSapi.Helpers, FMX.Helpers.iOS,
@@ -1358,6 +1360,7 @@ end;
 
 
 {$IFDEF ANDROID}
+{
 procedure TForm1.LoadSharedImage(SharedUri: Jnet_Uri);
 var
   InputStream: JInputStream;
@@ -1425,6 +1428,84 @@ begin
 
   finally
     MemoryStream.Free;
+  end;
+end;
+}
+procedure TForm1.LoadSharedImage(SharedUri: Jnet_Uri);
+var
+  InputStream: JInputStream;
+  AndroidBmp, RotatedBmp: JBitmap;
+  OrientationValue: Integer;
+  Matrix: JMatrix;
+  Surf: TBitmapSurface;
+  FinalBmp: TBitmap;
+begin
+  // Open Android InputStream from shared URI
+  InputStream := TAndroidHelper.Context.getContentResolver.openInputStream(SharedUri);
+  if InputStream = nil then
+  begin
+    ShowMessage('Cannot open shared image.');
+    Exit;
+  end;
+
+  // Decode JPEG using Android's BitmapFactory (robust)
+  AndroidBmp := TJBitmapFactory.JavaClass.decodeStream(InputStream);
+  InputStream.close;
+
+  if AndroidBmp = nil then
+  begin
+    ShowMessage('Failed decoding image.');
+    Exit;
+  end;
+
+  // Read Exif orientation via Android's native ExifInterface (very reliable)
+  InputStream := TAndroidHelper.Context.getContentResolver.openInputStream(SharedUri);
+  try
+    OrientationValue := TJExifInterface.JavaClass.init(InputStream).getAttributeInt(
+      TJExifInterface.JavaClass.TAG_ORIENTATION,
+      TJExifInterface.JavaClass.ORIENTATION_NORMAL);
+  finally
+    InputStream.close;
+  end;
+
+// Rotate the image according to the correct orientation
+Matrix := TJMatrix.JavaClass.init;
+
+if OrientationValue = TJExifInterface.JavaClass.ORIENTATION_ROTATE_90 then
+  Matrix.postRotate(90)
+else if OrientationValue = TJExifInterface.JavaClass.ORIENTATION_ROTATE_180 then
+  Matrix.postRotate(180)
+else if OrientationValue = TJExifInterface.JavaClass.ORIENTATION_ROTATE_270 then
+  Matrix.postRotate(270);
+
+// Apply rotation if needed
+if OrientationValue in [TJExifInterface.JavaClass.ORIENTATION_ROTATE_90,
+                        TJExifInterface.JavaClass.ORIENTATION_ROTATE_180,
+                        TJExifInterface.JavaClass.ORIENTATION_ROTATE_270] then
+begin
+  RotatedBmp := TJBitmap.JavaClass.createBitmap(
+    AndroidBmp, 0, 0, AndroidBmp.getWidth, AndroidBmp.getHeight, Matrix, True);
+end
+else
+  RotatedBmp := AndroidBmp; // No rotation needed
+
+  // Convert Android Bitmap (JBitmap) to FMX TBitmap
+  Surf := TBitmapSurface.Create;
+  try
+    if JBitmapToSurface(RotatedBmp, Surf) then
+    begin
+      FinalBmp := TBitmap.Create;
+      try
+        FinalBmp.Assign(Surf);
+        SetImage(FinalBmp); // Your existing method to show the bitmap
+      finally
+        FinalBmp.Free;
+      end;
+    end
+    else
+      ShowMessage('Failed converting bitmap surface.');
+  finally
+    Surf.Free;
   end;
 end;
 {$ENDIF}
